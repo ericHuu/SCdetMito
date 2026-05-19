@@ -1,0 +1,106 @@
+---
+title: "SCdetMito Package Documentation"
+vignette: >
+  %\VignetteIndexEntry{SCdetMito Package Documentation}
+  %\VignetteEngine{knitr::knitr}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE,
+  purl = FALSE
+)
+```
+
+# SCdetMito Package Documentation
+
+Version: 1.3.5
+
+Updated: 2026-05-18
+
+Author: Silu Hu
+
+## Purpose
+
+SCdetMito is a lightweight R package for retention-loss enrichment-based
+adaptive mitochondrial ratio cutoff recommendation in single-cell RNA-seq
+quality control. The package is designed for one-sample, multi-sample, and
+group-aware integrated Seurat workflows.
+
+The package should be used as a quality-control recommendation and auditing
+tool. It does not claim that a single universal mitochondrial cutoff exists for
+all tissues, species, chemistries, or disease contexts, and it should
+not be framed as a classical breakpoint model.
+
+## Bundled Test Data
+
+The installed package includes two small Seurat objects:
+
+- `load_demo_seurat()`: synthetic multi-group toy data for fast examples.
+- `load_pbmc3k_demo()`: lightweight public PBMC3K subset with 300 cells and
+  700 features.
+
+The bundled objects are intended for package examples and checks, not for
+large-scale validation claims.
+
+## Core Workflow
+
+```{r}
+library(SCdetMito)
+
+pbmc3k <- load_pbmc3k_demo()
+
+det <- SCdetMito(
+  pbmc3k,
+  sample_col = "sample",
+  mito_col = "mitoRatio",
+  min_cut = 0.01,
+  max_cut = 0.25,
+  return_details = TRUE,
+  write_plots = FALSE,
+  write_tables = FALSE
+)
+
+det$cutoff
+det$sample_cutoff_summary
+det$retained_cell_profile
+det$interval_loss_table
+```
+
+## Strategy Guide
+
+- `consensus`: use one all-sample sample-supported global cutoff.
+- `strictest`: use the most conservative sample-level cutoff.
+- `groupwise`: use group-specific cutoffs when each biological group contains
+  multiple samples.
+
+Available detection tests can be listed with:
+
+```{r}
+SCdetMito_methods()
+```
+
+Primary default:
+
+- `loss_test = "mad_zscore"`
+- `p_adj_method = "BH"`
+- `sample_cutoff_method = "largest_drop"`
+
+Useful sensitivity checks:
+
+- `loss_test = "empirical_tail"`
+- `loss_test = "poisson_tail"`
+- `p_adj_method = "none"` for unadjusted exploratory review
+- `p_adj_method = "holm"`
+- `SCdetMito_sensitivity()` for parameter stability checks
+
+## Citation
+
+```{r}
+citation("SCdetMito")
+```
+
+The only package author is Silu Hu.

@@ -1,0 +1,299 @@
+---
+title: "SCdetMito Detailed Tutorial"
+vignette: >
+  %\VignetteIndexEntry{SCdetMito Detailed Tutorial}
+  %\VignetteEngine{knitr::knitr}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE,
+  purl = FALSE
+)
+```
+
+This tutorial gives a practical end-to-end workflow for using `SCdetMito`.
+The package should be treated as a lightweight R package. Large public
+datasets, cross-species validation files, and manuscript outputs should remain
+outside the installed package.
+
+## Installation
+
+Install from a local source directory:
+
+```{r, purl=FALSE}
+install.packages("remotes")
+remotes::install_local("/path/to/SCdetMito")
+library(SCdetMito)
+```
+
+Install from a built source package:
+
+```{r, purl=FALSE}
+install.packages(
+  "/path/to/SCdetMito_1.3.5.tar.gz",
+  repos = NULL,
+  type = "source"
+)
+library(SCdetMito)
+```
+
+## Example Data
+
+Use the synthetic multi-group object for fast function checks:
+
+```{r, purl=FALSE}
+toy <- load_demo_seurat()
+table(toy$sample)
+table(toy$group)
+```
+
+Use the lightweight public PBMC3K subset for recognizable real-data examples:
+
+```{r, purl=FALSE}
+pbmc3k <- load_pbmc3k_demo()
+pbmc3k
+table(pbmc3k$sample)
+summary(pbmc3k$mitoRatio)
+```
+
+The bundled PBMC3K object is intentionally small. It is suitable for smoke
+tests and tutorials, not for full manuscript claims.
+
+## Add or Check Mitochondrial Ratio
+
+If your Seurat object does not have a mitochondrial ratio column:
+
+```{r, purl=FALSE}
+seu <- add_mitoRatio(
+  seurat_obj = seu,
+  pattern = "auto",
+  column = "mitoRatio",
+  scale = "fraction"
+)
+```
+
+For human data, `pattern = "^MT-"` is often appropriate. For mouse data,
+`pattern = "^mt-"` is often appropriate. For livestock and bird datasets,
+species presets can help when mitochondrial genes are not prefixed in the
+usual way.
+
+Then validate the metadata column:
+
+```{r, purl=FALSE}
+seu <- check_seu(
+  seurat_obj = seu,
+  check = "mitoRatio",
+  normalize_fraction = TRUE,
+  must_be_numeric = TRUE
+)
+```
+
+## Detect an Adaptive Mitochondrial Cutoff
+
+```{r, purl=FALSE}
+det <- SCdetMito(
+  seurat_obj = pbmc3k,
+  by = "sample",
+  mitoRatio = "mitoRatio",
+  min_cut = 0.01,
+  max_cut = 0.25,
+  loss_test = "mad_zscore",
+  p_adj_method = "BH",
+  sample_cutoff_method = "largest_drop",
+  min_group_support = 0.5,
+  plot = FALSE,
+  table_out = TRUE,
+  return_details = TRUE,
+  output_dir = "SCdetMito_result"
+)
+
+det$cutoff
+det$sample_cutoff_summary
+det$settings
+```
+
+Interpretation:
+
+- `det$cutoff` is the final sample-supported cutoff under the selected rule.
+- `det$sample_cutoff_summary` shows each sample-level cutoff.
+- `det$retained_cell_profile` shows retained cells across candidate cutoffs.
+- `det$interval_loss_table` shows interval-specific cell loss, candidate
+  filters, adjusted p-values, and significant intervals.
+- fallback sources indicate that no statistically supported retention-loss
+  interval was found for that sample.
+
+## Choose a Detection Test
+
+```{r, purl=FALSE}
+SCdetMito_methods()
+```
+
+Primary starting point:
+
+- `loss_test = "mad_zscore"`
+- `p_adj_method = "BH"`
+- `sample_cutoff_method = "largest_drop"`
+
+Sensitivity checks:
+
+- `loss_test = "empirical_tail"`
+- `p_adj_method = "none"` for unadjusted exploratory review
+- `p_adj_method = "holm"`
+- `sample_cutoff_method = "largest_drop"`
+
+`threshold_only` should mainly be used for sensitivity checks, not as a final
+manuscript setting.
+
+## Sensitivity Analysis
+
+Use `SCdetMito_sensitivity()` to evaluate whether sample-level cutoffs remain
+stable across reasonable parameter choices:
+
+```{r, purl=FALSE}
+sensitivity <- SCdetMito_sensitivity(
+  seurat_obj = pbmc3k,
+  sample_col = "sample",
+  mito_col = "mitoRatio",
+  bin_width = c(0.005, 0.01, 0.02),
+  alpha = c(0.01, 0.05, 0.10),
+  min_drop_fraction = c(0.005, 0.01),
+  loss_test = c("mad_zscore", "empirical_tail"),
+  sample_cutoff_method = c("largest_drop", "max_significant"),
+  write_plots = TRUE,
+  output_dir = "SCdetMito_sensitivity"
+)
+
+head(sensitivity)
+```
+
+Stable cutoffs across profiles support robustness. Highly variable cutoffs
+should be reported transparently and followed by biological inspection.
+
+## Single-Sample QC
+
+```{r, purl=FALSE}
+qc_single <- SCQCone(
+  seurat_obj = pbmc3k,
+  min_genes = 0,
+  min_counts = 0,
+  max_mito = "SCdetMito",
+  removeDouble = FALSE,
+  plot = FALSE,
+  table_out = TRUE,
+  output_dir = "SCQCone_result"
+)
+```
+
+Use a fixed threshold when needed:
+
+```{r, purl=FALSE}
+qc_fixed <- SCQCone(
+  seurat_obj = pbmc3k,
+  max_mito = 0.10,
+  removeDouble = FALSE
+)
+```
+
+Numeric values between 1 and 100 are interpreted as percentages, so
+`max_mito = 10` is converted to `0.10` with a warning.
+
+## Multi-Sample and Group-Aware QC
+
+For several samples without higher-level biological groups:
+
+```{r, purl=FALSE}
+qc_consensus <- SCQCmulti(
+  seurat_obj = pbmc3k,
+  by = "sample",
+  mode = "all",
+  cutoff_strategy = "consensus",
+  max_mito = "SCdetMito",
+  min_genes = 0,
+  min_counts = 0,
+  removeDouble = FALSE,
+  plot = FALSE,
+  table_out = TRUE,
+  output_dir = "SCQCmulti_consensus"
+)
+```
+
+For integrated studies with biological groups:
+
+```{r, purl=FALSE}
+qc_groupwise <- SCQCmulti(
+  seurat_obj = seu,
+  by = "sample_id",
+  group_by = "condition",
+  mode = "all",
+  cutoff_strategy = "groupwise",
+  max_mito = "SCdetMito",
+  cutoff_support_fraction = 0.5,
+  removeDouble = FALSE,
+  plot = FALSE,
+  table_out = TRUE,
+  output_dir = "SCQCmulti_groupwise"
+)
+
+qc_groupwise@misc$SCdetMito_QC$sample_plan
+qc_groupwise@misc$SCdetMito_QC$group_plan
+```
+
+Strategy guide:
+
+- `consensus`: one all-sample sample-supported global threshold.
+- `strictest`: minimum sample-level cutoff; useful when you need maximum
+  stringency.
+- `groupwise`: group-specific sample-supported thresholds; useful for
+  multi-group studies where each group has multiple samples.
+
+## Benchmark Fixed and Adaptive Strategies
+
+```{r, purl=FALSE}
+benchmark <- SCQCbenchmark(
+  seurat_obj = pbmc3k,
+  sample_col = "sample",
+  strategies = list(
+    list(name = "fixed_5", mode = "all", cutoff_strategy = "consensus", max_mito = 0.05),
+    list(name = "fixed_10", mode = "all", cutoff_strategy = "consensus", max_mito = 0.10),
+    list(name = "SCdetMito_consensus", mode = "all", cutoff_strategy = "consensus", max_mito = "SCdetMito")
+  ),
+  min_genes = 0,
+  min_counts = 0,
+  removeDouble = FALSE,
+  run_downstream = FALSE,
+  plot = FALSE,
+  output_dir = "benchmark_result"
+)
+
+benchmark$summary
+benchmark$scores
+benchmark$recommended_strategies
+benchmark$recommendation
+```
+
+Do not claim a method is better only because it keeps more cells. For a
+publishable comparison, report retention, residual mitochondrial burden,
+sample balance, group balance, cell type composition, marker stability, and
+downstream clustering quality.
+
+## Downstream Analysis
+
+After SCdetMito QC, continue with the standard Seurat workflow:
+
+```{r, purl=FALSE}
+qc_obj <- NormalizeData(qc_obj)
+qc_obj <- FindVariableFeatures(qc_obj)
+qc_obj <- ScaleData(qc_obj)
+qc_obj <- RunPCA(qc_obj)
+qc_obj <- FindNeighbors(qc_obj, dims = 1:20)
+qc_obj <- FindClusters(qc_obj, resolution = 0.5)
+qc_obj <- RunUMAP(qc_obj, dims = 1:20)
+```
+
+For manuscripts, compare SCdetMito against fixed thresholds such as 5%, 10%,
+15%, and 20%. Keep public validation data and large result tables outside the
+R package.

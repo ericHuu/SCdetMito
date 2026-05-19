@@ -1,0 +1,27 @@
+Package: SCdetMito
+Title: Data-Driven Mitochondrial Cutoff Detection for Single-Cell
+        RNA-Seq Quality Control
+Version: 1.3.5
+Authors@R: person("Silu Hu", email = "erichu121@foxmail.com", role = c("aut", "cre"))
+Description: Provides utilities for single-cell RNA-seq quality control with
+    a focus on mitochondrial content. The package estimates recommended
+    mitochondrial cutoffs from retained-cell profiles and interval-specific
+    retention-loss enrichment, performs
+    one-sample or multi-sample QC, supports group-aware cutoff strategies for
+    integrated studies, optional doublet removal, and generates QC summary
+    tables, plots, and benchmark outputs.
+Depends: R (>= 4.1.0)
+Imports: ggplot2, reshape2, rlang, Seurat
+Suggests: DoubletFinder, knitr, rmarkdown, testthat (>= 3.0.0)
+License: MIT + file LICENSE
+URL: https://silu-hu.github.io/SCdetMito/
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Date: 2026-05-18
+NeedsCompilation: no
+VignetteBuilder: knitr
+Config/testthat/edition: 3
+Author: Silu Hu [aut, cre]
+Maintainer: Silu Hu <erichu121@foxmail.com>
+Packaged: 2026-05-19 03:38:51 UTC; husilu
