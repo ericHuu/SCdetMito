@@ -1,0 +1,35 @@
+Package: SCdetMito
+Title: Sample-Aware Adaptive Mitochondrial Quality Control for
+        Single-Cell RNA-Seq
+Version: 1.3.6
+Authors@R: 
+    person(
+        given = "Silu",
+        family = "Hu",
+        role = c("aut", "cre"),
+        email = "husilu0902@gmail.com"
+    )
+Description: SCdetMito provides sample-aware adaptive mitochondrial quality
+    control for single-cell RNA-seq data. It constructs retained-cell profiles
+    across candidate mitochondrial cutoffs, quantifies interval-specific cell
+    loss, estimates sample-level mitochondrial cutoffs using robust
+    retention-loss enrichment, and supports multi-sample QC strategies,
+    benchmarking, sensitivity analysis, cutoff confidence reporting, and
+    provenance tracking for Seurat workflows.
+Depends: R (>= 4.1.0)
+Imports: ggplot2, reshape2, rlang, Seurat
+Suggests: DoubletFinder, knitr, rmarkdown, SeuratData, testthat (>=
+        3.0.0)
+License: MIT + file LICENSE
+URL: https://github.com/ericHuu/SCdetMito
+BugReports: https://github.com/ericHuu/SCdetMito/issues
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Date: 2026-05-20
+NeedsCompilation: no
+VignetteBuilder: knitr
+Config/testthat/edition: 3
+Packaged: 2026-05-20 04:16:53 UTC; husilu
+Author: Silu Hu [aut, cre]
+Maintainer: Silu Hu <husilu0902@gmail.com>
