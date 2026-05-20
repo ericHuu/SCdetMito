@@ -1,0 +1,527 @@
+# SCdetMito
+# Author: Silu Hu
+# Contact: husilu0902@gmail.com
+# Version: 1.3.6
+# Last updated: 2026-05-20
+
+#' Load the public PBMC3K dataset for SCdetMito examples
+#'
+#' @description
+#' This optional helper loads the public 10x Genomics PBMC3K dataset either
+#' through SeuratData or by downloading the filtered gene-barcode matrix from
+#' the public 10x Genomics URL. PBMC3K is provided as a small public
+#' smoke-test example. Because PBMCs often have relatively low mitochondrial
+#' fractions and dataset-specific QC structure, PBMC3K cutoff results should be
+#' interpreted as a functionality check rather than evidence of a universal
+#' mitochondrial threshold.
+#'
+#' @param method Loading method. `"SeuratData"` loads an already installed
+#'   SeuratData PBMC3K object. `"10x"` downloads the public 10x Genomics
+#'   filtered gene-barcode matrix to `cache_dir`.
+#' @param cache_dir Directory used to cache the downloaded 10x archive and
+#'   extracted matrix. Defaults to the user cache directory for SCdetMito.
+#' @param add_mito Whether to add mitochondrial ratio metadata when `mito_col`
+#'   is absent. Defaults to `TRUE`.
+#' @param mito_col Metadata column used for mitochondrial ratios. Defaults to
+#'   `"mitoRatio"`.
+#' @param min_cells Minimum cells per feature passed to
+#'   [Seurat::CreateSeuratObject()] for the 10x method.
+#' @param min_features Minimum detected features per cell passed to
+#'   [Seurat::CreateSeuratObject()] for the 10x method.
+#' @param verbose Whether to print cache and download messages. Defaults to
+#'   `TRUE`.
+#'
+#' @return A Seurat object containing the public PBMC3K data with minimal
+#'   metadata and mitochondrial metadata when `add_mito = TRUE`.
+#'
+#' @details
+#' This function is intended for explicit real-data smoke tests. It is not used
+#' during package installation, examples, automated tests, or R CMD check.
+#' Internet access is required for `method = "10x"` unless the 10x archive has
+#' already been cached.
+#'
+#' @examples
+#' \dontrun{
+#' pbmc <- load_pbmc3k_online(method = "10x")
+#' det <- SCdetMito(pbmc, sample_col = "sample", mito_col = "mitoRatio")
+#' }
+#' @export
+load_pbmc3k_online <- function(method = c("SeuratData", "10x"),
+                               cache_dir = tools::R_user_dir("SCdetMito", which = "cache"),
+                               add_mito = TRUE,
+                               mito_col = "mitoRatio",
+                               min_cells = 3,
+                               min_features = 200,
+                               verbose = TRUE) {
+  method <- match.arg(method)
+  .ensure_seurat_available()
+
+  seurat_obj <- switch(method,
+    SeuratData = .load_seuratdata_dataset(
+      dataset = "pbmc3k",
+      missing_package_message = paste0(
+        "SeuratData is required for method = 'SeuratData'. Install it with ",
+        "remotes::install_github('satijalab/seurat-data'), then run ",
+        "SeuratData::InstallData('pbmc3k')."
+      ),
+      missing_dataset_message = "The pbmc3k dataset is not installed. Run SeuratData::InstallData('pbmc3k') and retry."
+    ),
+    `10x` = .download_and_read_10x_matrix(
+      urls = "http://cf.10xgenomics.com/samples/cell-exp/1.1.0/pbmc3k/pbmc3k_filtered_gene_bc_matrices.tar.gz",
+      dataset_id = "pbmc3k",
+      cache_dir = cache_dir,
+      project = "pbmc3k",
+      min_cells = min_cells,
+      min_features = min_features,
+      verbose = verbose
+    )
+  )
+
+  seurat_obj$sample <- "pbmc3k"
+  seurat_obj$condition <- "public_pbmc"
+  seurat_obj$dataset <- "10x_pbmc3k"
+  seurat_obj$data_source <- if (identical(method, "SeuratData")) {
+    "SeuratData pbmc3k"
+  } else {
+    "10x Genomics public PBMC3K"
+  }
+
+  .add_or_normalize_mito_ratio(
+    seurat_obj = seurat_obj,
+    add_mito = add_mito,
+    mito_col = mito_col,
+    species = "human",
+    dataset_label = "PBMC3K"
+  )
+}
+
+#' Load a public 10x Genomics mouse heart 10k dataset
+#'
+#' @description
+#' This optional helper loads the public 10x Genomics "10k Heart Cells from an
+#' E18 mouse" dataset. The dataset is not included in SCdetMito and is
+#' downloaded only when this function is called. It is intended as a larger
+#' real-tissue example for mitochondrial QC workflows.
+#'
+#' @param cache_dir Directory used to cache the downloaded 10x archive and
+#'   extracted matrix. Defaults to the user cache directory for SCdetMito.
+#' @param add_mito Whether to add mitochondrial ratio metadata when `mito_col`
+#'   is absent. Defaults to `TRUE`.
+#' @param mito_col Metadata column used for mitochondrial ratios. Defaults to
+#'   `"mitoRatio"`.
+#' @param min_cells Minimum cells per feature passed to
+#'   [Seurat::CreateSeuratObject()].
+#' @param min_features Minimum detected features per cell passed to
+#'   [Seurat::CreateSeuratObject()].
+#' @param verbose Whether to print cache and download messages. Defaults to
+#'   `TRUE`.
+#'
+#' @return A Seurat object containing public mouse heart cells with
+#'   mitochondrial metadata when `add_mito = TRUE`.
+#'
+#' @details
+#' Internet access is required unless the 10x archive has already been cached.
+#' The downloaded archive and extracted matrix are stored under `cache_dir`,
+#' not inside the installed SCdetMito package.
+#'
+#' @examples
+#' \dontrun{
+#' heart <- load_heart10k_online()
+#' det <- SCdetMito(heart, sample_col = "sample", mito_col = "mitoRatio")
+#' }
+#' @export
+load_heart10k_online <- function(cache_dir = tools::R_user_dir("SCdetMito", which = "cache"),
+                                 add_mito = TRUE,
+                                 mito_col = "mitoRatio",
+                                 min_cells = 3,
+                                 min_features = 200,
+                                 verbose = TRUE) {
+  .ensure_seurat_available()
+
+  seurat_obj <- .download_and_read_10x_matrix(
+    urls = c(
+      "https://cf.10xgenomics.com/samples/cell-exp/3.0.0/heart_10k_v3/heart_10k_v3_filtered_feature_bc_matrix.tar.gz",
+      "http://cf.10xgenomics.com/samples/cell-exp/3.0.0/heart_10k_v3/heart_10k_v3_filtered_feature_bc_matrix.tar.gz"
+    ),
+    dataset_id = "heart10k",
+    cache_dir = cache_dir,
+    project = "heart10k",
+    min_cells = min_cells,
+    min_features = min_features,
+    verbose = verbose
+  )
+
+  seurat_obj$sample <- "heart10k"
+  seurat_obj$condition <- "public_mouse_heart"
+  seurat_obj$dataset <- "10x_heart10k_e18_mouse"
+  seurat_obj$tissue <- "heart"
+  seurat_obj$species <- "mouse"
+  seurat_obj$data_source <- "10x Genomics public Heart10k"
+
+  .add_or_normalize_mito_ratio(
+    seurat_obj = seurat_obj,
+    add_mito = add_mito,
+    mito_col = mito_col,
+    species = "mouse",
+    dataset_label = "10x Genomics mouse heart 10k"
+  )
+}
+
+#' Load the public IFNB-stimulated/control PBMC dataset
+#'
+#' @description
+#' This optional helper loads the public IFNB-stimulated and control PBMC
+#' dataset from SeuratData. It is intended as a multi-condition example for
+#' [SCQCmulti()] and groupwise QC strategies. The dataset is not included in
+#' SCdetMito.
+#'
+#' @param add_mito Whether to add mitochondrial ratio metadata when `mito_col`
+#'   is absent. Defaults to `TRUE`.
+#' @param mito_col Metadata column used for mitochondrial ratios. Defaults to
+#'   `"mitoRatio"`.
+#' @param sample_col Metadata column to create or harmonize for sample-level
+#'   SCdetMito workflows. Defaults to `"sample"`.
+#' @param group_col Metadata column to create or harmonize for condition-level
+#'   workflows. Defaults to `"condition"`.
+#' @param verbose Whether to print loading messages. Defaults to `TRUE`.
+#'
+#' @return A Seurat object with harmonized sample, condition, dataset, tissue,
+#'   species, and mitochondrial metadata when `add_mito = TRUE`.
+#'
+#' @details
+#' SeuratData is used as an optional dependency. This function does not install
+#' SeuratData or the IFNB dataset automatically.
+#'
+#' @examples
+#' \dontrun{
+#' ifnb <- load_ifnb_online()
+#' qc <- SCQCmulti(
+#'   ifnb,
+#'   sample_col = "sample",
+#'   group_col = "condition",
+#'   mito_col = "mitoRatio",
+#'   cutoff_strategy = "groupwise"
+#' )
+#' }
+#' @export
+load_ifnb_online <- function(add_mito = TRUE,
+                             mito_col = "mitoRatio",
+                             sample_col = "sample",
+                             group_col = "condition",
+                             verbose = TRUE) {
+  .ensure_seurat_available()
+  if (isTRUE(verbose)) {
+    message("Loading SeuratData IFNB-stimulated/control PBMC dataset.")
+  }
+  seurat_obj <- .load_seuratdata_dataset(
+    dataset = "ifnb",
+    missing_package_message = paste0(
+      "SeuratData is required for load_ifnb_online(). Install it with ",
+      "remotes::install_github('satijalab/seurat-data'), then run ",
+      "SeuratData::InstallData('ifnb')."
+    ),
+    missing_dataset_message = "The ifnb dataset is not installed. Run SeuratData::InstallData('ifnb') and retry."
+  )
+
+  condition_values <- if ("stim" %in% colnames(seurat_obj@meta.data)) {
+    as.character(seurat_obj@meta.data$stim)
+  } else if (group_col %in% colnames(seurat_obj@meta.data)) {
+    as.character(seurat_obj@meta.data[[group_col]])
+  } else if ("orig.ident" %in% colnames(seurat_obj@meta.data)) {
+    as.character(seurat_obj@meta.data$orig.ident)
+  } else {
+    rep("ifnb", ncol(seurat_obj))
+  }
+  condition_values[is.na(condition_values) | !nzchar(condition_values)] <- "ifnb"
+
+  seurat_obj@meta.data[[group_col]] <- condition_values
+  if (!sample_col %in% colnames(seurat_obj@meta.data)) {
+    seurat_obj@meta.data[[sample_col]] <- paste0("ifnb_", condition_values)
+  } else {
+    sample_values <- as.character(seurat_obj@meta.data[[sample_col]])
+    missing_samples <- is.na(sample_values) | !nzchar(sample_values)
+    if (all(missing_samples)) {
+      seurat_obj@meta.data[[sample_col]] <- paste0("ifnb_", condition_values)
+    } else if (any(missing_samples)) {
+      sample_values[missing_samples] <- paste0("ifnb_", condition_values[missing_samples])
+      seurat_obj@meta.data[[sample_col]] <- sample_values
+    }
+  }
+  seurat_obj$dataset <- "SeuratData_ifnb"
+  seurat_obj$tissue <- "PBMC"
+  seurat_obj$species <- "human"
+  seurat_obj$data_source <- "SeuratData IFNB-stimulated/control PBMC"
+
+  .add_or_normalize_mito_ratio(
+    seurat_obj = seurat_obj,
+    add_mito = add_mito,
+    mito_col = mito_col,
+    species = "human",
+    dataset_label = "SeuratData IFNB"
+  )
+}
+
+.ensure_seurat_available <- function() {
+  if (!requireNamespace("Seurat", quietly = TRUE)) {
+    stop("Seurat is required to load public data as a Seurat object.", call. = FALSE)
+  }
+}
+
+.load_seuratdata_dataset <- function(dataset,
+                                     missing_package_message,
+                                     missing_dataset_message) {
+  if (!requireNamespace("SeuratData", quietly = TRUE)) {
+    stop(missing_package_message, call. = FALSE)
+  }
+
+  if (!.seuratdata_dataset_installed(dataset)) {
+    stop(missing_dataset_message, call. = FALSE)
+  }
+
+  tryCatch(
+    getExportedValue("SeuratData", "LoadData")(dataset),
+    error = function(e) {
+      stop(
+        "Failed to load SeuratData dataset '",
+        dataset,
+        "': ",
+        conditionMessage(e),
+        call. = FALSE
+      )
+    }
+  )
+}
+
+.seuratdata_dataset_installed <- function(dataset) {
+  installed_data <- tryCatch(
+    getExportedValue("SeuratData", "InstalledData")(),
+    error = function(e) NULL
+  )
+  installed_values <- unique(as.character(unlist(installed_data, use.names = FALSE)))
+  any(grepl(paste0("^", dataset), installed_values, ignore.case = TRUE))
+}
+
+.download_and_read_10x_matrix <- function(urls,
+                                          dataset_id,
+                                          cache_dir,
+                                          project,
+                                          min_cells,
+                                          min_features,
+                                          verbose) {
+  .ensure_seurat_available()
+  .validate_cache_dir(cache_dir)
+
+  extract_dir <- file.path(cache_dir, dataset_id)
+  if (!dir.exists(extract_dir)) {
+    dir.create(extract_dir, recursive = TRUE, showWarnings = FALSE)
+  }
+  if (!dir.exists(extract_dir)) {
+    stop("Could not create extraction directory for ", dataset_id, ": ", extract_dir, call. = FALSE)
+  }
+
+  archive_file <- file.path(cache_dir, basename(urls[[1]]))
+  if (!file.exists(archive_file) || isTRUE(file.info(archive_file)$size <= 0)) {
+    .download_archive_with_fallback(
+      urls = urls,
+      destfile = archive_file,
+      dataset_id = dataset_id,
+      verbose = verbose
+    )
+  } else if (isTRUE(verbose)) {
+    message("Using cached file for ", dataset_id, ": ", archive_file)
+  }
+
+  matrix_dir <- .find_10x_matrix_dir(extract_dir)
+  if (is.null(matrix_dir)) {
+    if (isTRUE(verbose)) {
+      message("Extracting ", dataset_id, " archive under: ", extract_dir)
+    }
+    extract_status <- tryCatch(
+      utils::untar(archive_file, exdir = extract_dir),
+      error = function(e) e
+    )
+    if (inherits(extract_status, "error")) {
+      stop(
+        "Failed to extract ",
+        dataset_id,
+        " archive: ",
+        conditionMessage(extract_status),
+        call. = FALSE
+      )
+    }
+    matrix_dir <- .find_10x_matrix_dir(extract_dir)
+  }
+  if (is.null(matrix_dir)) {
+    stop(
+      "Could not locate the extracted 10x matrix directory for ",
+      dataset_id,
+      " under: ",
+      extract_dir,
+      call. = FALSE
+    )
+  }
+  if (isTRUE(verbose)) {
+    message("Matrix directory detected for ", dataset_id, ": ", matrix_dir)
+  }
+
+  counts <- tryCatch(
+    Seurat::Read10X(data.dir = matrix_dir),
+    error = function(e) {
+      stop("Failed to read 10x matrix for ", dataset_id, ": ", conditionMessage(e), call. = FALSE)
+    }
+  )
+  if (is.list(counts)) {
+    counts <- if ("Gene Expression" %in% names(counts)) counts[["Gene Expression"]] else counts[[1]]
+  }
+
+  seurat_obj <- Seurat::CreateSeuratObject(
+    counts = counts,
+    project = project,
+    min.cells = min_cells,
+    min.features = min_features
+  )
+  if (isTRUE(verbose)) {
+    message(
+      "Loaded ",
+      ncol(seurat_obj),
+      " cells and ",
+      nrow(seurat_obj),
+      " features for ",
+      dataset_id,
+      "."
+    )
+  }
+  seurat_obj
+}
+
+.download_archive_with_fallback <- function(urls,
+                                            destfile,
+                                            dataset_id,
+                                            verbose) {
+  attempted <- character(0)
+  for (idx in seq_along(urls)) {
+    current_url <- urls[[idx]]
+    attempted <- c(attempted, current_url)
+    if (isTRUE(verbose)) {
+      if (idx == 1L) {
+        message("Downloading ", dataset_id, " from: ", current_url)
+      } else {
+        message("Trying fallback URL for ", dataset_id, ": ", current_url)
+      }
+    }
+    status <- tryCatch(
+      suppressWarnings(utils::download.file(
+        url = current_url,
+        destfile = destfile,
+        mode = "wb",
+        quiet = !isTRUE(verbose)
+      )),
+      error = function(e) e
+    )
+    if (!inherits(status, "error") &&
+      identical(as.integer(status), 0L) &&
+      file.exists(destfile) &&
+      isTRUE(file.info(destfile)$size > 0)) {
+      return(invisible(destfile))
+    }
+    if (file.exists(destfile) && isTRUE(file.info(destfile)$size <= 0)) {
+      unlink(destfile)
+    }
+  }
+
+  stop(
+    "Failed to download ",
+    dataset_id,
+    ". URLs attempted: ",
+    paste(attempted, collapse = "; "),
+    ". Check internet access or manually download the 10x filtered feature-barcode matrix to the cache directory.",
+    call. = FALSE
+  )
+}
+
+.validate_cache_dir <- function(cache_dir) {
+  if (!is.character(cache_dir) || length(cache_dir) != 1 || !nzchar(cache_dir)) {
+    stop("'cache_dir' must be a non-empty directory path.", call. = FALSE)
+  }
+  if (!dir.exists(cache_dir)) {
+    dir.create(cache_dir, recursive = TRUE, showWarnings = FALSE)
+  }
+  if (!dir.exists(cache_dir)) {
+    stop("Could not create cache directory: ", cache_dir, call. = FALSE)
+  }
+}
+
+.find_10x_matrix_dir <- function(root_dir) {
+  candidates <- list.dirs(root_dir, recursive = TRUE, full.names = TRUE)
+  candidates <- candidates[vapply(candidates, .is_10x_matrix_dir, logical(1))]
+  if (!length(candidates)) {
+    return(NULL)
+  }
+  candidates[[1]]
+}
+
+.is_10x_matrix_dir <- function(path) {
+  has_matrix <- file.exists(file.path(path, "matrix.mtx")) ||
+    file.exists(file.path(path, "matrix.mtx.gz"))
+  has_barcodes <- file.exists(file.path(path, "barcodes.tsv")) ||
+    file.exists(file.path(path, "barcodes.tsv.gz"))
+  has_features <- file.exists(file.path(path, "genes.tsv")) ||
+    file.exists(file.path(path, "genes.tsv.gz")) ||
+    file.exists(file.path(path, "features.tsv")) ||
+    file.exists(file.path(path, "features.tsv.gz"))
+
+  has_matrix && has_barcodes && has_features
+}
+
+.add_or_normalize_mito_ratio <- function(seurat_obj,
+                                         add_mito,
+                                         mito_col,
+                                         species,
+                                         dataset_label) {
+  if (!isTRUE(add_mito)) {
+    return(seurat_obj)
+  }
+  if (mito_col %in% colnames(seurat_obj@meta.data)) {
+    return(.normalize_existing_mito_fraction(seurat_obj, mito_col))
+  }
+
+  tryCatch(
+    add_mitoRatio(
+      seurat_obj = seurat_obj,
+      species = species,
+      column = mito_col,
+      scale = "fraction"
+    ),
+    error = function(e) {
+      stop(
+        "Failed to calculate mitochondrial ratio for ",
+        dataset_label,
+        ". ",
+        conditionMessage(e),
+        " Please check gene symbols or provide mitochondrial features manually.",
+        call. = FALSE
+      )
+    }
+  )
+}
+
+.normalize_existing_mito_fraction <- function(seurat_obj, mito_col) {
+  mito_values <- seurat_obj@meta.data[[mito_col]]
+  if (!is.numeric(mito_values)) {
+    stop("Existing mitochondrial column '", mito_col, "' is not numeric.", call. = FALSE)
+  }
+  finite_values <- mito_values[is.finite(mito_values)]
+  if (length(finite_values) && max(finite_values, na.rm = TRUE) > 1) {
+    if (max(finite_values, na.rm = TRUE) <= 100) {
+      seurat_obj@meta.data[[mito_col]] <- mito_values / 100
+    } else {
+      stop(
+        "Existing mitochondrial column '",
+        mito_col,
+        "' is not on a fraction or percentage scale.",
+        call. = FALSE
+      )
+    }
+  }
+  seurat_obj
+}

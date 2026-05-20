@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<title>SCdetMito Workflow</title>
+<style type="text/css">
+/**
+ * Prism.s theme ported from highlight.js's xcode style
+ */
+pre code {
+  padding: 1em;
+}
+.token.comment {
+  color: #007400;
+}
+.token.punctuation {
+  color: #999;
+}
+.token.tag,
+.token.selector {
+  color: #aa0d91;
+}
+.token.boolean,
+.token.number,
+.token.constant,
+.token.symbol {
+  color: #1c00cf;
+}
+.token.property,
+.token.attr-name,
+.token.string,
+.token.char,
+.token.builtin {
+  color: #c41a16;
+}
+.token.inserted {
+  background-color: #ccffd8;
+}
+.token.deleted {
+  background-color: #ffebe9;
+}
+.token.operator,
+.token.entity,
+.token.url,
+.language-css .token.string,
+.style .token.string {
+  color: #9a6e3a;
+}
+.token.atrule,
+.token.attr-value,
+.token.keyword {
+  color: #836c28;
+}
+.token.function,
+.token.class-name {
+  color: #DD4A68;
+}
+.token.regex,
+.token.important,
+.token.variable {
+  color: #5c2699;
+}
+.token.important,
+.token.bold {
+  font-weight: bold;
+}
+.token.italic {
+  font-style: italic;
+}
+</style>
+<style type="text/css">
+body {
+  font-family: sans-serif;
+  max-width: 800px;
+  margin: auto;
+  padding: 1em;
+  line-height: 1.5;
+  box-sizing: border-box;
+}
+body, .footnotes, code { font-size: .9em; }
+li li { font-size: .95em; }
+*, *:before, *:after {
+  box-sizing: inherit;
+}
+pre, img { max-width: 100%; }
+pre, pre:hover {
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+pre code {
+  display: block;
+  overflow-x: auto;
+}
+code { font-family: 'DejaVu Sans Mono', 'Droid Sans Mono', 'Lucida Console', Consolas, Monaco, monospace; }
+:not(pre) > code, code[class] { background-color: #F8F8F8; }
+code.language-undefined, pre > code:not([class]) {
+  background-color: inherit;
+  border: 1px solid #eee;
+}
+table {
+  margin: auto;
+  border-top: 1px solid #666;
+}
+table thead th { border-bottom: 1px solid #ddd; }
+th, td { padding: 5px; }
+thead, tfoot, tr:nth-child(even) { background: #eee; }
+blockquote {
+  color: #666;
+  margin: 0;
+  padding-left: 1em;
+  border-left: 0.5em solid #eee;
+}
+hr, .footnotes::before { border: 1px dashed #ddd; }
+.frontmatter { text-align: center; }
+#TOC .numbered li { list-style: none; }
+#TOC .numbered { padding-left: 0; }
+#TOC .numbered ul { padding-left: 1em; }
+table, .body h2 { border-bottom: 1px solid #666; }
+.body .appendix, .appendix ~ h2 { border-bottom-style: dashed; }
+.footnote-ref a::before { content: "["; }
+.footnote-ref a::after { content: "]"; }
+section.footnotes::before {
+  content: "";
+  display: block;
+  max-width: 20em;
+}
+
+@media print {
+  body {
+    font-size: 12pt;
+    max-width: 100%;
+  }
+  tr, img { page-break-inside: avoid; }
+}
+@media only screen and (min-width: 992px) {
+  pre { white-space: pre; }
+}
+</style>
+</head>
+<body>
+<div class="frontmatter">
+<div class="title"><h1>SCdetMito Workflow</h1></div>
+<div class="author"><h2></h2></div>
+<div class="date"><h3></h3></div>
+</div>
+<div class="body">
+<p><code>SCdetMito</code> focuses on single-cell RNA-seq quality control driven by
+mitochondrial burden. The package supports both single-sample QC and
+multi-sample integrated studies in which several biological groups contain
+multiple samples.</p>
+<h2 id="load-the-demo-object">Load the demo object</h2>
+<pre><code class="language-r">library(SCdetMito)
+
+seu &lt;- load_demo_seurat()
+seu
+#&gt; Loading required package: SeuratObject
+#&gt; Loading required package: sp
+#&gt; 'SeuratObject' was built under R 4.4.0 but the current version is
+#&gt; 4.4.2; it is recomended that you reinstall 'SeuratObject' as the ABI
+#&gt; for R may have changed
+#&gt; 'SeuratObject' was built with package 'Matrix' 1.7.0 but the current
+#&gt; version is 1.7.2; it is recomended that you reinstall 'SeuratObject' as
+#&gt; the ABI for 'Matrix' may have changed
+#&gt; 
+#&gt; Attaching package: 'SeuratObject'
+#&gt; The following objects are masked from 'package:base':
+#&gt; 
+#&gt;     intersect, t
+#&gt; An object of class Seurat 
+#&gt; 320 features across 270 samples within 1 assay 
+#&gt; Active assay: RNA (320 features, 0 variable features)
+#&gt;  1 layer present: counts
+table(seu$group)
+#&gt; 
+#&gt;   Control Disease_A Disease_B 
+#&gt;        80        90       100
+table(seu$sample)
+#&gt; 
+#&gt; S1 S2 S3 S4 S5 S6 
+#&gt; 40 40 45 45 50 50
+</code></pre>
+<p>The bundled object is intentionally small so that the package can be tested and
+demonstrated quickly. It is a smoke-test object, not a large validation
+dataset. Optional public data loaders are available for explicit user-run
+examples: <code>load_pbmc3k_online()</code> for a small public smoke test,
+<code>load_heart10k_online()</code> for a larger real-tissue example, and
+<code>load_ifnb_online()</code> for a multi-condition workflow example. These loaders are
+not used during package checks.</p>
+<h2 id="single-sample-qc">Single-sample QC</h2>
+<pre><code class="language-r">sample_s1 &lt;- subset(seu, subset = sample == &quot;S1&quot;)
+
+qc_single &lt;- SCQCone(
+  seurat_obj = sample_s1,
+  min_genes = 0,
+  min_counts = 0,
+  max_mito = 0.10,
+  removeDouble = FALSE,
+  plot = FALSE,
+  table_out = FALSE
+)
+#&gt; Performing quality control for single-cell RNA-seq data...
+#&gt; QC Summary [before]:
+#&gt;   CellCounts GenesCounts_median TranscriptCounts_median MitoRatio_median  Stage
+#&gt; 1         40                278                    1632        0.0508791 before
+#&gt;   MitoCutoff CellsRemoved RetentionRate
+#&gt; 1        0.1            0             1
+#&gt; mitoRatio cutoff was set to: 0.1
+#&gt; Other QC indicators:
+#&gt; min_genes: 0
+#&gt; max_genes: Inf
+#&gt; min_counts: 0
+#&gt; max_counts: Inf
+#&gt; Perform cell filtering ...
+#&gt; QC Summary [after]:
+#&gt;   CellCounts GenesCounts_median TranscriptCounts_median MitoRatio_median Stage
+#&gt; 1         39                278                    1633        0.0502924 after
+#&gt;   MitoCutoff CellsRemoved RetentionRate
+#&gt; 1        0.1            1         0.975
+
+ncol(sample_s1)
+#&gt; [1] 40
+ncol(qc_single)
+#&gt; [1] 39
+</code></pre>
+<p><code>SCQCone()</code> is appropriate when the dataset is a single sample or when you want
+to apply a manually chosen threshold to one sample at a time.</p>
+<h2 id="group-aware-multi-sample-qc">Group-aware multi-sample QC</h2>
+<p>For integrated analysis, <code>SCQCmulti()</code> can estimate sample-level mitochondrial
+cutoffs from retained-cell and interval-loss profiles, then combine them
+according to the selected sample-support strategy.</p>
+<pre><code class="language-r">qc_groupwise &lt;- SCQCmulti(
+  seurat_obj = seu,
+  by = &quot;sample&quot;,
+  group_by = &quot;group&quot;,
+  mode = &quot;all&quot;,
+  cutoff_strategy = &quot;groupwise&quot;,
+  min_genes = 0,
+  min_counts = 0,
+  max_mito = &quot;SCdetMito&quot;,
+  removeDouble = FALSE,
+  plot = FALSE,
+  table_out = FALSE
+)
+#&gt; Performing quality control for single-cell RNA-seq data...
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.12
+#&gt; QC Summary [before]:
+#&gt;   CellCounts GenesCounts_median TranscriptCounts_median MitoRatio_median  Stage
+#&gt; 1        270                275                    1603        0.1054429 before
+#&gt;   Mode MitoCutoff CellsRemoved RetentionRate CutoffStrategy AppliedCutoffMin
+#&gt; 1  all       0.19            0             1      groupwise             0.07
+#&gt;   AppliedCutoffMedian AppliedCutoffMax
+#&gt; 1                0.12             0.19
+#&gt; Applied mitoRatio cutoff range: 0.07 - 0.19
+#&gt; QC Summary [after]:
+#&gt;   CellCounts GenesCounts_median TranscriptCounts_median MitoRatio_median Stage
+#&gt; 1        211                275                    1605        0.1004739 after
+#&gt;   Mode MitoCutoff CellsRemoved RetentionRate CutoffStrategy AppliedCutoffMin
+#&gt; 1  all       0.19           59        0.7815      groupwise             0.07
+#&gt;   AppliedCutoffMedian AppliedCutoffMax
+#&gt; 1                0.12             0.19
+
+ncol(seu)
+#&gt; [1] 270
+ncol(qc_groupwise)
+#&gt; [1] 211
+qc_groupwise@misc$SCdetMito_QC$group_plan
+#&gt;    group_id group_cutoff sample_count support_count support_fraction
+#&gt; 1   Control         0.07            2             1              0.5
+#&gt; 2 Disease_A         0.12            2             1              0.5
+#&gt; 3 Disease_B         0.19            2             1              0.5
+#&gt;   required_support global_cutoff n_supporting_samples n_total_samples  strategy
+#&gt; 1                1          0.07                    1               2 groupwise
+#&gt; 2                1          0.12                    1               2 groupwise
+#&gt; 3                1          0.19                    1               2 groupwise
+#&gt;       group
+#&gt; 1   Control
+#&gt; 2 Disease_A
+#&gt; 3 Disease_B
+</code></pre>
+<p>In practice:</p>
+<ul>
+<li><code>consensus</code> gives one all-sample sample-supported global cutoff for the full object</li>
+<li><code>strictest</code> takes the minimum sample-level cutoff</li>
+<li><code>groupwise</code> allows group-specific cutoffs and is often a practical starting
+point for multi-group studies</li>
+</ul>
+<h2 id="benchmark-qc-strategies">Benchmark QC strategies</h2>
+<p><code>SCQCbenchmark()</code> compares fixed thresholds and adaptive strategies, then writes
+summary tables and a markdown report.</p>
+<pre><code class="language-r">benchmark &lt;- SCQCbenchmark(
+  seurat_obj = seu,
+  sample_col = &quot;sample&quot;,
+  group_col = &quot;group&quot;,
+  strategies = list(
+    list(name = &quot;fixed_10&quot;, mode = &quot;all&quot;, cutoff_strategy = &quot;consensus&quot;, max_mito = 0.10),
+    list(name = &quot;fixed_15&quot;, mode = &quot;all&quot;, cutoff_strategy = &quot;consensus&quot;, max_mito = 0.15),
+    list(name = &quot;SCdetMito_groupwise&quot;, mode = &quot;all&quot;, cutoff_strategy = &quot;groupwise&quot;, max_mito = &quot;SCdetMito&quot;)
+  ),
+  min_genes = 0,
+  min_counts = 0,
+  removeDouble = FALSE,
+  run_downstream = FALSE,
+  plot = FALSE,
+  save_objects = FALSE,
+  output_dir = tempdir()
+)
+#&gt; Performing quality control for single-cell RNA-seq data...
+#&gt; QC Summary [before]:
+#&gt;   CellCounts GenesCounts_median TranscriptCounts_median MitoRatio_median  Stage
+#&gt; 1        270                275                    1603        0.1054429 before
+#&gt;   Mode MitoCutoff CellsRemoved RetentionRate CutoffStrategy AppliedCutoffMin
+#&gt; 1  all        0.1            0             1      consensus              0.1
+#&gt;   AppliedCutoffMedian AppliedCutoffMax
+#&gt; 1                 0.1              0.1
+#&gt; Applied mitoRatio cutoff range: 0.1 - 0.1
+#&gt; QC Summary [after]:
+#&gt;   CellCounts GenesCounts_median TranscriptCounts_median MitoRatio_median Stage
+#&gt; 1        124                278                  1637.5       0.06620324 after
+#&gt;   Mode MitoCutoff CellsRemoved RetentionRate CutoffStrategy AppliedCutoffMin
+#&gt; 1  all        0.1          146        0.4593      consensus              0.1
+#&gt;   AppliedCutoffMedian AppliedCutoffMax
+#&gt; 1                 0.1              0.1
+#&gt; Performing quality control for single-cell RNA-seq data...
+#&gt; QC Summary [before]:
+#&gt;   CellCounts GenesCounts_median TranscriptCounts_median MitoRatio_median  Stage
+#&gt; 1        270                275                    1603        0.1054429 before
+#&gt;   Mode MitoCutoff CellsRemoved RetentionRate CutoffStrategy AppliedCutoffMin
+#&gt; 1  all       0.15            0             1      consensus             0.15
+#&gt;   AppliedCutoffMedian AppliedCutoffMax
+#&gt; 1                0.15             0.15
+#&gt; Applied mitoRatio cutoff range: 0.15 - 0.15
+#&gt; QC Summary [after]:
+#&gt;   CellCounts GenesCounts_median TranscriptCounts_median MitoRatio_median Stage
+#&gt; 1        208                276                    1597       0.08815029 after
+#&gt;   Mode MitoCutoff CellsRemoved RetentionRate CutoffStrategy AppliedCutoffMin
+#&gt; 1  all       0.15           62        0.7704      consensus             0.15
+#&gt;   AppliedCutoffMedian AppliedCutoffMax
+#&gt; 1                0.15             0.15
+#&gt; Performing quality control for single-cell RNA-seq data...
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.12
+#&gt; QC Summary [before]:
+#&gt;   CellCounts GenesCounts_median TranscriptCounts_median MitoRatio_median  Stage
+#&gt; 1        270                275                    1603        0.1054429 before
+#&gt;   Mode MitoCutoff CellsRemoved RetentionRate CutoffStrategy AppliedCutoffMin
+#&gt; 1  all       0.19            0             1      groupwise             0.07
+#&gt;   AppliedCutoffMedian AppliedCutoffMax
+#&gt; 1                0.12             0.19
+#&gt; Applied mitoRatio cutoff range: 0.07 - 0.19
+#&gt; QC Summary [after]:
+#&gt;   CellCounts GenesCounts_median TranscriptCounts_median MitoRatio_median Stage
+#&gt; 1        211                275                    1605        0.1004739 after
+#&gt;   Mode MitoCutoff CellsRemoved RetentionRate CutoffStrategy AppliedCutoffMin
+#&gt; 1  all       0.19           59        0.7815      groupwise             0.07
+#&gt;   AppliedCutoffMedian AppliedCutoffMax
+#&gt; 1                0.12             0.19
+
+benchmark$recommendation
+#&gt;   scoring_profile recommended_adaptive_strategy recommended_strategy
+#&gt; 1        balanced           SCdetMito_groupwise  SCdetMito_groupwise
+#&gt;   top_scoring_strategy   adaptive_strategy    overall_strategy retention_rate
+#&gt; 1  SCdetMito_groupwise SCdetMito_groupwise SCdetMito_groupwise         0.7815
+#&gt;   median_mito_after sample_retention_cv group_retention_cv overall_score
+#&gt; 1         0.1004739           0.2155304         0.07490556          0.75
+benchmark$recommended_strategies
+#&gt;     scoring_profile recommended_adaptive_strategy recommended_strategy
+#&gt; 1          balanced           SCdetMito_groupwise  SCdetMito_groupwise
+#&gt; 2 retention_focused           SCdetMito_groupwise  SCdetMito_groupwise
+#&gt; 3    stringent_mito           SCdetMito_groupwise             fixed_15
+#&gt; 4   balance_focused           SCdetMito_groupwise  SCdetMito_groupwise
+#&gt;   top_scoring_strategy   adaptive_strategy    overall_strategy retention_rate
+#&gt; 1  SCdetMito_groupwise SCdetMito_groupwise SCdetMito_groupwise         0.7815
+#&gt; 2  SCdetMito_groupwise SCdetMito_groupwise SCdetMito_groupwise         0.7815
+#&gt; 3             fixed_15 SCdetMito_groupwise            fixed_15         0.7815
+#&gt; 4  SCdetMito_groupwise SCdetMito_groupwise SCdetMito_groupwise         0.7815
+#&gt;   median_mito_after sample_retention_cv group_retention_cv overall_score
+#&gt; 1         0.1004739           0.2155304         0.07490556          0.75
+#&gt; 2         0.1004739           0.2155304         0.07490556          0.85
+#&gt; 3         0.1004739           0.2155304         0.07490556          0.45
+#&gt; 4         0.1004739           0.2155304         0.07490556          0.85
+benchmark$scores[, c(&quot;strategy&quot;, &quot;overall_score&quot;, &quot;retention_rate&quot;, &quot;median_mito_after&quot;)]
+#&gt;                                strategy overall_score retention_rate
+#&gt; SCdetMito_groupwise SCdetMito_groupwise        0.7500         0.7815
+#&gt; fixed_15                       fixed_15        0.6894         0.7704
+#&gt; fixed_10                       fixed_10        0.2500         0.4593
+#&gt;                     median_mito_after
+#&gt; SCdetMito_groupwise        0.10047393
+#&gt; fixed_15                   0.08815029
+#&gt; fixed_10                   0.06620324
+</code></pre>
+<p>The returned score table is intended to support method comparison and
+manuscript preparation. It does not replace biological judgment, but it makes
+the QC choice explicit and reproducible under the selected scoring profile.</p>
+<h2 id="recommended-use-in-real-studies">Recommended use in real studies</h2>
+<ol>
+<li>Compute <code>mitoRatio</code> with <code>add_mitoRatio()</code> if needed.</li>
+<li>Run <code>SCdetMito()</code> or <code>SCQCmulti()</code> to estimate adaptive cutoffs.</li>
+<li>Prefer <code>groupwise</code> QC when several samples exist inside each biological
+group.</li>
+<li>Use <code>SCQCbenchmark()</code> to compare the adaptive strategy against fixed
+thresholds before finalizing downstream analysis.</li>
+</ol>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-core.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/autoloader/prism-autoloader.min.js" defer></script>
+</body>
+</html>

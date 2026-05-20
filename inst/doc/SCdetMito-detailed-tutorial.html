@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<title>SCdetMito Detailed Tutorial</title>
+<style type="text/css">
+/**
+ * Prism.s theme ported from highlight.js's xcode style
+ */
+pre code {
+  padding: 1em;
+}
+.token.comment {
+  color: #007400;
+}
+.token.punctuation {
+  color: #999;
+}
+.token.tag,
+.token.selector {
+  color: #aa0d91;
+}
+.token.boolean,
+.token.number,
+.token.constant,
+.token.symbol {
+  color: #1c00cf;
+}
+.token.property,
+.token.attr-name,
+.token.string,
+.token.char,
+.token.builtin {
+  color: #c41a16;
+}
+.token.inserted {
+  background-color: #ccffd8;
+}
+.token.deleted {
+  background-color: #ffebe9;
+}
+.token.operator,
+.token.entity,
+.token.url,
+.language-css .token.string,
+.style .token.string {
+  color: #9a6e3a;
+}
+.token.atrule,
+.token.attr-value,
+.token.keyword {
+  color: #836c28;
+}
+.token.function,
+.token.class-name {
+  color: #DD4A68;
+}
+.token.regex,
+.token.important,
+.token.variable {
+  color: #5c2699;
+}
+.token.important,
+.token.bold {
+  font-weight: bold;
+}
+.token.italic {
+  font-style: italic;
+}
+</style>
+<style type="text/css">
+body {
+  font-family: sans-serif;
+  max-width: 800px;
+  margin: auto;
+  padding: 1em;
+  line-height: 1.5;
+  box-sizing: border-box;
+}
+body, .footnotes, code { font-size: .9em; }
+li li { font-size: .95em; }
+*, *:before, *:after {
+  box-sizing: inherit;
+}
+pre, img { max-width: 100%; }
+pre, pre:hover {
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+pre code {
+  display: block;
+  overflow-x: auto;
+}
+code { font-family: 'DejaVu Sans Mono', 'Droid Sans Mono', 'Lucida Console', Consolas, Monaco, monospace; }
+:not(pre) > code, code[class] { background-color: #F8F8F8; }
+code.language-undefined, pre > code:not([class]) {
+  background-color: inherit;
+  border: 1px solid #eee;
+}
+table {
+  margin: auto;
+  border-top: 1px solid #666;
+}
+table thead th { border-bottom: 1px solid #ddd; }
+th, td { padding: 5px; }
+thead, tfoot, tr:nth-child(even) { background: #eee; }
+blockquote {
+  color: #666;
+  margin: 0;
+  padding-left: 1em;
+  border-left: 0.5em solid #eee;
+}
+hr, .footnotes::before { border: 1px dashed #ddd; }
+.frontmatter { text-align: center; }
+#TOC .numbered li { list-style: none; }
+#TOC .numbered { padding-left: 0; }
+#TOC .numbered ul { padding-left: 1em; }
+table, .body h2 { border-bottom: 1px solid #666; }
+.body .appendix, .appendix ~ h2 { border-bottom-style: dashed; }
+.footnote-ref a::before { content: "["; }
+.footnote-ref a::after { content: "]"; }
+section.footnotes::before {
+  content: "";
+  display: block;
+  max-width: 20em;
+}
+
+@media print {
+  body {
+    font-size: 12pt;
+    max-width: 100%;
+  }
+  tr, img { page-break-inside: avoid; }
+}
+@media only screen and (min-width: 992px) {
+  pre { white-space: pre; }
+}
+</style>
+</head>
+<body>
+<div class="frontmatter">
+<div class="title"><h1>SCdetMito Detailed Tutorial</h1></div>
+<div class="author"><h2></h2></div>
+<div class="date"><h3></h3></div>
+</div>
+<div class="body">
+<p>This tutorial gives a practical end-to-end workflow for using <code>SCdetMito</code>.
+The package should be treated as a lightweight R package. Large public
+datasets, cross-species validation files, and manuscript outputs should remain
+outside the installed package.</p>
+<h2 id="installation">Installation</h2>
+<p>Install from a local source directory:</p>
+<pre><code class="language-r">install.packages(&quot;remotes&quot;)
+remotes::install_local(&quot;/path/to/SCdetMito&quot;)
+library(SCdetMito)
+</code></pre>
+<p>Install from a built source package:</p>
+<pre><code class="language-r">install.packages(
+  &quot;/path/to/SCdetMito_1.3.6.tar.gz&quot;,
+  repos = NULL,
+  type = &quot;source&quot;
+)
+library(SCdetMito)
+</code></pre>
+<h2 id="example-data">Example Data</h2>
+<p>Use the synthetic multi-group object for fast function checks:</p>
+<pre><code class="language-r">toy &lt;- load_demo_seurat()
+table(toy$sample)
+table(toy$group)
+</code></pre>
+<p>Use the lightweight public PBMC3K-derived subset for public-data smoke tests:</p>
+<pre><code class="language-r">pbmc3k &lt;- load_pbmc3k_demo()
+pbmc3k
+table(pbmc3k$sample)
+summary(pbmc3k$mitoRatio)
+</code></pre>
+<p>The bundled PBMC3K-derived object is intentionally small. It is suitable for
+smoke tests and tutorials, not for full manuscript claims.</p>
+<p>For public data examples, explicitly call the optional online loaders:</p>
+<pre><code class="language-r">pbmc_online &lt;- load_pbmc3k_online(method = &quot;10x&quot;)
+heart_online &lt;- load_heart10k_online()
+ifnb_online &lt;- load_ifnb_online()
+</code></pre>
+<p>PBMC3K is a small public smoke-test example. Heart10k is the recommended
+larger real-tissue example for SoftwareX demonstration. IFNB is a
+multi-condition PBMC example for comparing consensus, strictest, and groupwise
+QC strategies. These datasets are not included in the package and are loaded
+only when explicitly requested. Standard package examples and automated tests
+do not require internet access.</p>
+<h2 id="add-or-check-mitochondrial-ratio">Add or Check Mitochondrial Ratio</h2>
+<p>If your Seurat object does not have a mitochondrial ratio column:</p>
+<pre><code class="language-r">seu &lt;- add_mitoRatio(
+  seurat_obj = seu,
+  pattern = &quot;auto&quot;,
+  column = &quot;mitoRatio&quot;,
+  scale = &quot;fraction&quot;
+)
+</code></pre>
+<p>For human data, <code>pattern = &quot;^MT-&quot;</code> is often appropriate. For mouse data,
+<code>pattern = &quot;^mt-&quot;</code> is often appropriate. For livestock and bird datasets,
+species presets can help when mitochondrial genes are not prefixed in the
+usual way.</p>
+<p>Then validate the metadata column:</p>
+<pre><code class="language-r">seu &lt;- check_seu(
+  seurat_obj = seu,
+  check = &quot;mitoRatio&quot;,
+  normalize_fraction = TRUE,
+  must_be_numeric = TRUE
+)
+</code></pre>
+<h2 id="detect-an-adaptive-mitochondrial-cutoff">Detect an Adaptive Mitochondrial Cutoff</h2>
+<pre><code class="language-r">det &lt;- SCdetMito(
+  seurat_obj = pbmc3k,
+  by = &quot;sample&quot;,
+  mitoRatio = &quot;mitoRatio&quot;,
+  min_cut = 0.01,
+  max_cut = 0.25,
+  loss_test = &quot;mad_zscore&quot;,
+  p_adj_method = &quot;BH&quot;,
+  sample_cutoff_method = &quot;largest_drop&quot;,
+  min_group_support = 0.5,
+  plot = FALSE,
+  table_out = TRUE,
+  return_details = TRUE,
+  output_dir = &quot;SCdetMito_result&quot;
+)
+
+det$cutoff
+det$sample_cutoff_summary
+det$settings
+</code></pre>
+<p>Interpretation:</p>
+<ul>
+<li><code>det$cutoff</code> is the final sample-supported cutoff under the selected rule.</li>
+<li><code>det$sample_cutoff_summary</code> shows each sample-level cutoff.</li>
+<li><code>det$retained_cell_profile</code> shows retained cells across candidate cutoffs.</li>
+<li><code>det$interval_loss_table</code> shows interval-specific cell loss, candidate
+filters, adjusted p-values, and significant intervals.</li>
+<li>fallback sources indicate that no statistically supported retention-loss
+interval was found for that sample.</li>
+</ul>
+<h2 id="choose-a-detection-test">Choose a Detection Test</h2>
+<pre><code class="language-r">SCdetMito_methods()
+</code></pre>
+<p>Primary starting point:</p>
+<ul>
+<li><code>loss_test = &quot;mad_zscore&quot;</code></li>
+<li><code>p_adj_method = &quot;BH&quot;</code></li>
+<li><code>sample_cutoff_method = &quot;largest_drop&quot;</code></li>
+</ul>
+<p>Sensitivity checks:</p>
+<ul>
+<li><code>loss_test = &quot;empirical_tail&quot;</code></li>
+<li><code>p_adj_method = &quot;none&quot;</code> for unadjusted exploratory review</li>
+<li><code>p_adj_method = &quot;holm&quot;</code></li>
+<li><code>sample_cutoff_method = &quot;largest_drop&quot;</code></li>
+</ul>
+<p><code>threshold_only</code> should mainly be used for sensitivity checks, not as a final
+manuscript setting.</p>
+<h2 id="sensitivity-analysis">Sensitivity Analysis</h2>
+<p>Use <code>SCdetMito_sensitivity()</code> to evaluate whether sample-level cutoffs remain
+stable across reasonable parameter choices:</p>
+<pre><code class="language-r">sensitivity &lt;- SCdetMito_sensitivity(
+  seurat_obj = pbmc3k,
+  sample_col = &quot;sample&quot;,
+  mito_col = &quot;mitoRatio&quot;,
+  bin_width = c(0.005, 0.01, 0.02),
+  alpha = c(0.01, 0.05, 0.10),
+  min_drop_fraction = c(0.005, 0.01),
+  loss_test = c(&quot;mad_zscore&quot;, &quot;empirical_tail&quot;),
+  sample_cutoff_method = c(&quot;largest_drop&quot;, &quot;max_significant&quot;),
+  write_plots = TRUE,
+  output_dir = &quot;SCdetMito_sensitivity&quot;
+)
+
+head(sensitivity)
+</code></pre>
+<p>Stable cutoffs across profiles support robustness. Highly variable cutoffs
+should be reported transparently and followed by biological inspection.</p>
+<h2 id="single-sample-qc">Single-Sample QC</h2>
+<pre><code class="language-r">qc_single &lt;- SCQCone(
+  seurat_obj = pbmc3k,
+  min_genes = 0,
+  min_counts = 0,
+  max_mito = &quot;SCdetMito&quot;,
+  removeDouble = FALSE,
+  plot = FALSE,
+  table_out = TRUE,
+  output_dir = &quot;SCQCone_result&quot;
+)
+</code></pre>
+<p>Use a fixed threshold when needed:</p>
+<pre><code class="language-r">qc_fixed &lt;- SCQCone(
+  seurat_obj = pbmc3k,
+  max_mito = 0.10,
+  removeDouble = FALSE
+)
+</code></pre>
+<p>Numeric values between 1 and 100 are interpreted as percentages, so
+<code>max_mito = 10</code> is converted to <code>0.10</code> with a warning.</p>
+<h2 id="multi-sample-and-group-aware-qc">Multi-Sample and Group-Aware QC</h2>
+<p>For several samples without higher-level biological groups:</p>
+<pre><code class="language-r">qc_consensus &lt;- SCQCmulti(
+  seurat_obj = pbmc3k,
+  by = &quot;sample&quot;,
+  mode = &quot;all&quot;,
+  cutoff_strategy = &quot;consensus&quot;,
+  max_mito = &quot;SCdetMito&quot;,
+  min_genes = 0,
+  min_counts = 0,
+  removeDouble = FALSE,
+  plot = FALSE,
+  table_out = TRUE,
+  output_dir = &quot;SCQCmulti_consensus&quot;
+)
+</code></pre>
+<p>For integrated studies with biological groups:</p>
+<pre><code class="language-r">qc_groupwise &lt;- SCQCmulti(
+  seurat_obj = seu,
+  by = &quot;sample_id&quot;,
+  group_by = &quot;condition&quot;,
+  mode = &quot;all&quot;,
+  cutoff_strategy = &quot;groupwise&quot;,
+  max_mito = &quot;SCdetMito&quot;,
+  cutoff_support_fraction = 0.5,
+  removeDouble = FALSE,
+  plot = FALSE,
+  table_out = TRUE,
+  output_dir = &quot;SCQCmulti_groupwise&quot;
+)
+
+qc_groupwise@misc$SCdetMito_QC$sample_plan
+qc_groupwise@misc$SCdetMito_QC$group_plan
+</code></pre>
+<p>Strategy guide:</p>
+<ul>
+<li><code>consensus</code>: one all-sample sample-supported global cutoff.</li>
+<li><code>strictest</code>: minimum sample-level cutoff; useful when you need maximum
+stringency.</li>
+<li><code>groupwise</code>: group-specific sample-supported cutoffs; useful for
+multi-group studies where each group has multiple samples.</li>
+</ul>
+<h2 id="benchmark-fixed-and-adaptive-strategies">Benchmark Fixed and Adaptive Strategies</h2>
+<pre><code class="language-r">benchmark &lt;- SCQCbenchmark(
+  seurat_obj = pbmc3k,
+  sample_col = &quot;sample&quot;,
+  strategies = list(
+    list(name = &quot;fixed_5&quot;, mode = &quot;all&quot;, cutoff_strategy = &quot;consensus&quot;, max_mito = 0.05),
+    list(name = &quot;fixed_10&quot;, mode = &quot;all&quot;, cutoff_strategy = &quot;consensus&quot;, max_mito = 0.10),
+    list(name = &quot;SCdetMito_consensus&quot;, mode = &quot;all&quot;, cutoff_strategy = &quot;consensus&quot;, max_mito = &quot;SCdetMito&quot;)
+  ),
+  min_genes = 0,
+  min_counts = 0,
+  removeDouble = FALSE,
+  run_downstream = FALSE,
+  plot = FALSE,
+  output_dir = &quot;benchmark_result&quot;
+)
+
+benchmark$summary
+benchmark$scores
+benchmark$recommended_strategies
+benchmark$recommendation
+</code></pre>
+<p>Do not claim a method is better only because it keeps more cells. For a
+publishable comparison, report retention, residual mitochondrial burden,
+sample balance, group balance, cell type composition, marker stability, and
+downstream clustering quality.</p>
+<h2 id="downstream-analysis">Downstream Analysis</h2>
+<p>After SCdetMito QC, continue with the standard Seurat workflow:</p>
+<pre><code class="language-r">qc_obj &lt;- NormalizeData(qc_obj)
+qc_obj &lt;- FindVariableFeatures(qc_obj)
+qc_obj &lt;- ScaleData(qc_obj)
+qc_obj &lt;- RunPCA(qc_obj)
+qc_obj &lt;- FindNeighbors(qc_obj, dims = 1:20)
+qc_obj &lt;- FindClusters(qc_obj, resolution = 0.5)
+qc_obj &lt;- RunUMAP(qc_obj, dims = 1:20)
+</code></pre>
+<p>For manuscripts, compare SCdetMito against fixed thresholds such as 5%, 10%,
+15%, and 20%. Keep public validation data and large result tables outside the
+R package.</p>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-core.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/autoloader/prism-autoloader.min.js" defer></script>
+</body>
+</html>
