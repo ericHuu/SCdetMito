@@ -1,0 +1,150 @@
+---
+title: "SCdetMito Workflow"
+vignette: >
+  %\VignetteIndexEntry{SCdetMito Workflow}
+  %\VignetteEngine{knitr::knitr}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+`SCdetMito` focuses on single-cell RNA-seq quality control driven by
+mitochondrial burden. The package supports both single-sample QC and
+multi-sample integrated studies in which several biological groups contain
+multiple samples.
+
+## Load the demo object
+
+```{r}
+library(SCdetMito)
+
+seu <- load_demo_seurat()
+seu
+table(seu$group)
+table(seu$sample)
+```
+
+The bundled object is intentionally small so that the package can be tested and
+demonstrated quickly. It is a smoke-test object, not a large validation
+dataset. Optional public data loaders are available for explicit user-run
+examples: `load_pbmc3k_online()` for a small public smoke test,
+`load_mousebrain5k_online()` for a tissue/nuclei scouting candidate,
+`load_heart10k_online()` for a larger solid-tissue stress-test candidate, and
+`load_ifnb_online()` for a multi-condition workflow example. These loaders are
+not used during package checks.
+
+## Single-sample QC
+
+```{r}
+sample_s1 <- subset(seu, subset = sample == "S1")
+
+qc_single <- SCQCone(
+  seurat_obj = sample_s1,
+  min_genes = 0,
+  min_counts = 0,
+  max_mito = 0.10,
+  removeDouble = FALSE,
+  plot = FALSE,
+  table_out = FALSE
+)
+
+ncol(sample_s1)
+ncol(qc_single)
+```
+
+`SCQCone()` is appropriate when the dataset is a single sample or when you want
+to apply a manually chosen threshold to one sample at a time.
+
+## Group-aware multi-sample QC
+
+For integrated analysis, `SCQCmulti()` can estimate sample-level mitochondrial
+cutoffs from retained-cell and interval-loss profiles, then combine them
+according to the selected sample-support strategy.
+
+```{r}
+qc_groupwise <- SCQCmulti(
+  seurat_obj = seu,
+  by = "sample",
+  group_by = "group",
+  mode = "all",
+  cutoff_strategy = "groupwise",
+  species = "human",
+  tissue = "global",
+  scdet_options = list(sample_cutoff_method = "reference_guided"),
+  min_genes = 0,
+  min_counts = 0,
+  max_mito = "SCdetMito",
+  removeDouble = FALSE,
+  plot = FALSE,
+  table_out = FALSE
+)
+
+ncol(seu)
+ncol(qc_groupwise)
+qc_groupwise@misc$SCdetMito_QC$group_plan
+```
+
+In practice:
+
+- `consensus` gives one all-sample sample-supported global cutoff for the full object
+- `strictest` takes the minimum sample-level cutoff
+- `groupwise` allows group-specific cutoffs and is often a practical starting
+  point for multi-group studies
+- `sample_cutoff_method = "reference_guided"` reports the literature-informed
+  reference, first significant high-to-low boundary, largest-drop cutoff, and
+  selected cutoff for auditing
+
+## Benchmark QC strategies
+
+`SCQCbenchmark()` compares fixed thresholds and adaptive strategies, then writes
+summary tables and a markdown report.
+
+```{r}
+benchmark <- SCQCbenchmark(
+  seurat_obj = seu,
+  sample_col = "sample",
+  group_col = "group",
+  strategies = list(
+    list(name = "fixed_10", mode = "all", cutoff_strategy = "consensus", max_mito = 0.10),
+    list(name = "fixed_15", mode = "all", cutoff_strategy = "consensus", max_mito = 0.15),
+    list(
+      name = "SCdetMito_reference_guided",
+      mode = "all",
+      cutoff_strategy = "groupwise",
+      max_mito = "SCdetMito",
+      scdet_options = list(sample_cutoff_method = "reference_guided")
+    )
+  ),
+  species = "human",
+  tissue = "global",
+  min_genes = 0,
+  min_counts = 0,
+  removeDouble = FALSE,
+  run_downstream = FALSE,
+  plot = FALSE,
+  save_objects = FALSE,
+  output_dir = tempdir()
+)
+
+benchmark$recommendation
+benchmark$recommended_strategies
+benchmark$scores[, c("strategy", "overall_score", "retention_rate", "median_mito_after")]
+```
+
+The returned score table is intended to support method comparison and
+manuscript preparation. It does not replace biological judgment, but it makes
+the QC choice explicit and reproducible under the selected scoring profile.
+
+## Recommended use in real studies
+
+1. Compute `mitoRatio` with `add_mitoRatio()` if needed.
+2. Run `SCdetMito()` or `SCQCmulti()` to estimate adaptive cutoffs.
+3. Prefer `groupwise` QC when several samples exist inside each biological
+   group.
+4. Use `SCQCbenchmark()` to compare the adaptive strategy against fixed
+   thresholds before finalizing downstream analysis.

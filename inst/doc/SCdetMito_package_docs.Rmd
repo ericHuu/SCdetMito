@@ -1,0 +1,135 @@
+---
+title: "SCdetMito Package Documentation"
+vignette: >
+  %\VignetteIndexEntry{SCdetMito Package Documentation}
+  %\VignetteEngine{knitr::knitr}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE,
+  purl = FALSE
+)
+```
+
+# SCdetMito Package Documentation
+
+Version: 1.4.0
+
+Updated: 2026-05-20
+
+Author: Silu Hu
+
+## Purpose
+
+SCdetMito is a lightweight R package for reference-aware retention-loss
+enrichment-based mitochondrial ratio cutoff recommendation in single-cell
+RNA-seq quality control. The package reports literature-informed references,
+first significant high-to-low boundaries, largest-drop boundaries, and the
+selected cutoff under the requested decision mode.
+
+The package should be used as a quality-control recommendation and auditing
+tool. It does not claim that a single universal mitochondrial cutoff exists for
+all tissues, species, chemistries, or disease contexts, and it should
+not be framed as a classical breakpoint model.
+
+## Example Data
+
+The installed package includes lightweight objects for examples and checks:
+
+- `load_demo_seurat()`: synthetic multi-group toy data for fast examples.
+- `load_pbmc3k_demo()`: lightweight public PBMC3K subset with 300 cells and
+  700 features.
+
+The bundled objects are intended for package examples and checks, not for
+large-scale validation claims.
+
+For a real public dataset, users can optionally call
+`load_pbmc3k_online(method = "10x")`, `load_mousebrain5k_online()`,
+`load_heart10k_online()`, or `load_ifnb_online()`. PBMC3K is a small public
+smoke-test example, mouse brain 5k is a tissue/nuclei scouting candidate,
+heart10k is a larger solid-tissue stress-test candidate, and IFNB is a
+multi-condition workflow example. Online datasets are downloaded or loaded only
+when the corresponding function is called. Internet access is not required for
+standard package checks.
+
+## Core Workflow
+
+```{r}
+library(SCdetMito)
+
+pbmc3k <- load_pbmc3k_demo()
+
+det <- SCdetMito(
+  pbmc3k,
+  sample_col = "sample",
+  mito_col = "mitoRatio",
+  min_cut = 0.01,
+  max_cut = 0.25,
+  species = "human",
+  tissue = "PBMC",
+  sample_cutoff_method = "reference_guided",
+  return_details = TRUE,
+  write_plots = FALSE,
+  write_tables = FALSE
+)
+
+det$cutoff
+det$sample_cutoff_summary[, c(
+  "sample",
+  "reference_cutoff",
+  "first_significant_cutoff_high",
+  "largest_drop_cutoff",
+  "selected_cutoff",
+  "detected_cutoff",
+  "warning_level"
+)]
+det$retained_cell_profile
+det$interval_loss_table
+```
+
+`selected_cutoff` is the reference-aware decision field introduced in v1.4.0.
+`detected_cutoff` is retained as a backward-compatible alias. Reference cutoffs
+are literature-informed priors, not hard filtering rules; tissue-note rows may
+use species-level priors unless explicitly marked as tissue-specific.
+
+## Strategy Guide
+
+- `consensus`: use one all-sample sample-supported global cutoff.
+- `strictest`: use the most conservative sample-level cutoff.
+- `groupwise`: use group-specific cutoffs when each biological group contains
+  multiple samples.
+
+Available detection tests can be listed with:
+
+```{r}
+SCdetMito_methods()
+```
+
+Primary default and SoftwareX reference-aware mode:
+
+- `loss_test = "mad_zscore"`
+- `p_adj_method = "BH"`
+- `sample_cutoff_method = "largest_drop"` is retained as the default for
+  backward compatibility
+- `sample_cutoff_method = "reference_guided"` prioritizes the first significant
+  high-to-low boundary when available and reports reference-deviation warnings
+
+Useful sensitivity checks:
+
+- `loss_test = "empirical_tail"`
+- `loss_test = "poisson_tail"`
+- `p_adj_method = "none"` for unadjusted exploratory review
+- `p_adj_method = "holm"`
+- `SCdetMito_sensitivity()` for parameter stability checks
+
+## Citation
+
+```{r}
+citation("SCdetMito")
+```
+
+The only package author is Silu Hu.
