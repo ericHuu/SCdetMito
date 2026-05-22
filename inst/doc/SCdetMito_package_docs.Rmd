@@ -1,0 +1,125 @@
+---
+title: "SCdetMito Package Documentation"
+vignette: >
+  %\VignetteIndexEntry{SCdetMito Package Documentation}
+  %\VignetteEngine{knitr::knitr}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE,
+  purl = FALSE
+)
+```
+
+# SCdetMito Package Documentation
+
+Version: 1.4.2
+
+Updated: 2026-05-22
+
+Author: Silu Hu
+
+## Purpose
+
+SCdetMito is an R package for reference-aware and sample-aware adaptive
+mitochondrial QC in single-cell RNA-seq data. It reports literature-informed
+reference cutoffs, first significant high-to-low boundaries, largest-drop
+boundaries, user-selected cutoffs, package-recommended cutoffs, warning fields,
+and provenance metadata.
+
+The package is a QC decision-support framework. It does not define a universal
+biological mitochondrial cutoff.
+
+## Demo Data
+
+The installed package includes one practical bundled demo:
+
+- `load_demo_pbmc()`: a downsampled multi-donor PBMC Seurat object derived from
+  public 10x Genomics GEM-X Human PBMC Donor 1-4 datasets.
+- `load_demo_seurat()`: backward-compatible alias for `load_demo_pbmc()`.
+
+The demo contains four donor-level samples, two demographic groups, raw counts,
+retained mitochondrial features, and `mitoRatio` calculated with
+`ensure_mito_ratio(species = "human")`. It is intended for examples and
+software tests, not biological inference.
+
+Optional online public-data loaders are retained as user-run utilities. They
+are not used by standard examples, vignettes, tests, or R CMD check.
+
+## Core Workflow
+
+```{r}
+library(SCdetMito)
+
+pbmc <- load_demo_pbmc()
+
+det <- SCdetMito(
+  pbmc,
+  sample_col = "sample",
+  mito_col = "mitoRatio",
+  species = "human",
+  tissue = "PBMC",
+  sample_cutoff_method = "reference_guided",
+  return_details = TRUE,
+  write_plots = FALSE,
+  write_tables = FALSE
+)
+
+det$sample_cutoff_summary
+```
+
+`selected_cutoff` is determined by the requested `sample_cutoff_method`.
+`detected_cutoff` is retained as a backward-compatible alias of
+`selected_cutoff`. `recommended_cutoff` is reported for every sample using
+SCdetMito's default reference-aware policy, so strict or exploratory selected
+modes can be compared with the package recommendation.
+
+## Mitochondrial Ratio Handling
+
+```{r}
+pbmc <- ensure_mito_ratio(pbmc, mito_col = "mitoRatio", species = "human")
+```
+
+Manual mitochondrial feature lists should include all mitochondrial features
+retained in the object:
+
+```{r}
+mito_features <- grep("^MT-", rownames(pbmc), value = TRUE)
+pbmc <- ensure_mito_ratio(pbmc, mito_features = mito_features, species = "human")
+```
+
+Short illustrative mitochondrial gene subsets should not be used for real QC.
+
+## Multi-Sample QC
+
+```{r}
+qc_groupwise <- SCQCmulti(
+  pbmc,
+  sample_col = "sample",
+  group_col = "group",
+  mito_col = "mitoRatio",
+  cutoff_strategy = "groupwise",
+  scdet_options = list(sample_cutoff_method = "reference_guided"),
+  species = "human",
+  tissue = "PBMC",
+  min_genes = 0,
+  min_counts = 0,
+  removeDouble = FALSE,
+  write_plots = FALSE,
+  write_tables = FALSE
+)
+```
+
+## Reference Cutoffs
+
+```{r}
+SCdetMito_reference_cutoffs(species = "human", tissue = "PBMC")
+```
+
+Reference cutoffs are literature-informed priors for interpretation. They are
+not hard filtering rules and should not be treated as tissue-invariant
+thresholds.

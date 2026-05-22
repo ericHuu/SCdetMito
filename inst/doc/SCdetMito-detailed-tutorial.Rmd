@@ -1,0 +1,139 @@
+---
+title: "SCdetMito Detailed Tutorial"
+vignette: >
+  %\VignetteIndexEntry{SCdetMito Detailed Tutorial}
+  %\VignetteEngine{knitr::knitr}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE,
+  purl = FALSE
+)
+```
+
+This tutorial outlines an internet-independent SCdetMito workflow using the
+bundled multi-donor PBMC demo.
+
+## Installation
+
+Install SCdetMito from GitHub with:
+
+```r
+install.packages("remotes")
+remotes::install_github("ericHuu/SCdetMito@v1.4.2", build_vignettes = FALSE)
+```
+
+Then load the package:
+
+```{r}
+library(SCdetMito)
+```
+
+## Load Demo Data
+
+```{r}
+pbmc <- load_demo_pbmc()
+table(pbmc$sample)
+table(pbmc$group)
+summary(pbmc$mitoRatio)
+```
+
+The demo is derived from public 10x Genomics GEM-X Human PBMC Donor 1-4
+datasets and downsampled to 2,500 cells per donor. It is intended for software
+demonstration and testing only.
+
+## Ensure Mitochondrial Fraction Metadata
+
+```{r}
+pbmc <- ensure_mito_ratio(
+  pbmc,
+  mito_col = "mitoRatio",
+  species = "human"
+)
+```
+
+If automatic feature detection is not appropriate, provide a complete
+mitochondrial feature vector retained in the object:
+
+```{r}
+mito_features <- grep("^MT-", rownames(pbmc), value = TRUE)
+pbmc <- ensure_mito_ratio(
+  pbmc,
+  mito_col = "mitoRatio",
+  species = "human",
+  mito_features = mito_features,
+  overwrite = TRUE
+)
+```
+
+## Run SCdetMito
+
+```{r}
+det <- SCdetMito(
+  pbmc,
+  sample_col = "sample",
+  mito_col = "mitoRatio",
+  species = "human",
+  tissue = "PBMC",
+  sample_cutoff_method = "reference_guided",
+  return_details = TRUE,
+  write_plots = FALSE,
+  write_tables = FALSE
+)
+
+det$sample_cutoff_summary
+```
+
+`selected_cutoff` follows the requested cutoff mode. `detected_cutoff` is a
+backward-compatible alias of `selected_cutoff`. `recommended_cutoff` is always
+reported using the default reference-aware recommendation policy, so users can
+compare the selected cutoff with SCdetMito's recommendation and warning fields.
+
+## Apply Groupwise QC
+
+```{r}
+qc <- SCQCmulti(
+  pbmc,
+  sample_col = "sample",
+  group_col = "group",
+  mito_col = "mitoRatio",
+  cutoff_strategy = "groupwise",
+  scdet_options = list(sample_cutoff_method = "reference_guided"),
+  species = "human",
+  tissue = "PBMC",
+  min_genes = 0,
+  min_counts = 0,
+  removeDouble = FALSE,
+  write_plots = FALSE,
+  write_tables = FALSE
+)
+
+qc@misc$SCdetMito_QC$group_plan
+```
+
+## Compare Strategies
+
+```{r}
+bench <- SCQCbenchmark(
+  pbmc,
+  sample_col = "sample",
+  group_col = "group",
+  species = "human",
+  tissue = "PBMC",
+  min_genes = 0,
+  min_counts = 0,
+  removeDouble = FALSE,
+  run_downstream = FALSE,
+  plot = FALSE,
+  output_dir = tempdir()
+)
+
+bench$recommended_strategies
+```
+
+The recommended strategy is ranked under the selected scoring profile. It is
+not a universal QC optimum.
