@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<title>SCdetMito Workflow</title>
+<style type="text/css">
+/**
+ * Prism.s theme ported from highlight.js's xcode style
+ */
+pre code {
+  padding: 1em;
+}
+.token.comment {
+  color: #007400;
+}
+.token.punctuation {
+  color: #999;
+}
+.token.tag,
+.token.selector {
+  color: #aa0d91;
+}
+.token.boolean,
+.token.number,
+.token.constant,
+.token.symbol {
+  color: #1c00cf;
+}
+.token.property,
+.token.attr-name,
+.token.string,
+.token.char,
+.token.builtin {
+  color: #c41a16;
+}
+.token.inserted {
+  background-color: #ccffd8;
+}
+.token.deleted {
+  background-color: #ffebe9;
+}
+.token.operator,
+.token.entity,
+.token.url,
+.language-css .token.string,
+.style .token.string {
+  color: #9a6e3a;
+}
+.token.atrule,
+.token.attr-value,
+.token.keyword {
+  color: #836c28;
+}
+.token.function,
+.token.class-name {
+  color: #DD4A68;
+}
+.token.regex,
+.token.important,
+.token.variable {
+  color: #5c2699;
+}
+.token.important,
+.token.bold {
+  font-weight: bold;
+}
+.token.italic {
+  font-style: italic;
+}
+</style>
+<style type="text/css">
+body {
+  font-family: sans-serif;
+  max-width: 800px;
+  margin: auto;
+  padding: 1em;
+  line-height: 1.5;
+  box-sizing: border-box;
+}
+body, .footnotes, code { font-size: .9em; }
+li li { font-size: .95em; }
+*, *:before, *:after {
+  box-sizing: inherit;
+}
+pre, img { max-width: 100%; }
+pre, pre:hover {
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+pre code {
+  display: block;
+  overflow-x: auto;
+}
+code { font-family: 'DejaVu Sans Mono', 'Droid Sans Mono', 'Lucida Console', Consolas, Monaco, monospace; }
+:not(pre) > code, code[class] { background-color: #F8F8F8; }
+code.language-undefined, pre > code:not([class]) {
+  background-color: inherit;
+  border: 1px solid #eee;
+}
+table {
+  margin: auto;
+  border-top: 1px solid #666;
+}
+table thead th { border-bottom: 1px solid #ddd; }
+th, td { padding: 5px; }
+thead, tfoot, tr:nth-child(even) { background: #eee; }
+blockquote {
+  color: #666;
+  margin: 0;
+  padding-left: 1em;
+  border-left: 0.5em solid #eee;
+}
+hr, .footnotes::before { border: 1px dashed #ddd; }
+.frontmatter { text-align: center; }
+#TOC .numbered li { list-style: none; }
+#TOC .numbered { padding-left: 0; }
+#TOC .numbered ul { padding-left: 1em; }
+table, .body h2 { border-bottom: 1px solid #666; }
+.body .appendix, .appendix ~ h2 { border-bottom-style: dashed; }
+.footnote-ref a::before { content: "["; }
+.footnote-ref a::after { content: "]"; }
+section.footnotes::before {
+  content: "";
+  display: block;
+  max-width: 20em;
+}
+
+@media print {
+  body {
+    font-size: 12pt;
+    max-width: 100%;
+  }
+  tr, img { page-break-inside: avoid; }
+}
+@media only screen and (min-width: 992px) {
+  pre { white-space: pre; }
+}
+</style>
+</head>
+<body>
+<div class="frontmatter">
+<div class="title"><h1>SCdetMito Workflow</h1></div>
+<div class="author"><h2></h2></div>
+<div class="date"><h3></h3></div>
+</div>
+<div class="body">
+<p><code>SCdetMito</code> provides reference-aware mitochondrial QC decision support for
+Seurat workflows. The package reports retained-cell profiles,
+interval-specific cell loss, literature-informed reference cutoffs, and
+multiple sample-level cutoff candidates.</p>
+<h2 id="load-the-bundled-pbmc-demo">Load the bundled PBMC demo</h2>
+<pre><code class="language-r">library(SCdetMito)
+
+pbmc &lt;- load_demo_pbmc()
+table(pbmc$sample)
+#&gt; Loading required package: SeuratObject
+#&gt; Loading required package: sp
+#&gt; 'SeuratObject' was built under R 4.4.0 but the current version is
+#&gt; 4.4.2; it is recomended that you reinstall 'SeuratObject' as the ABI
+#&gt; for R may have changed
+#&gt; 'SeuratObject' was built with package 'Matrix' 1.7.0 but the current
+#&gt; version is 1.7.2; it is recomended that you reinstall 'SeuratObject' as
+#&gt; the ABI for 'Matrix' may have changed
+#&gt; 
+#&gt; Attaching package: 'SeuratObject'
+#&gt; The following objects are masked from 'package:base':
+#&gt; 
+#&gt;     intersect, t
+#&gt; 
+#&gt; donor1 donor2 donor3 donor4 
+#&gt;   2500   2500   2500   2500
+table(pbmc$group)
+#&gt; 
+#&gt; female_36_50   male_18_35 
+#&gt;         5000         5000
+summary(pbmc$mitoRatio)
+#&gt;    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#&gt; 0.00000 0.02204 0.02994 0.04277 0.04215 0.90876
+</code></pre>
+<p>The bundled demo is a downsampled multi-donor PBMC object derived from public
+10x Genomics GEM-X Human PBMC Donor 1-4 datasets. It is intended for software
+examples and tests, not biological inference.</p>
+<h2 id="reference-aware-sample-cutoffs">Reference-aware sample cutoffs</h2>
+<pre><code class="language-r">det &lt;- SCdetMito(
+  pbmc,
+  sample_col = &quot;sample&quot;,
+  mito_col = &quot;mitoRatio&quot;,
+  species = &quot;human&quot;,
+  tissue = &quot;PBMC&quot;,
+  sample_cutoff_method = &quot;reference_guided&quot;,
+  return_details = TRUE,
+  write_plots = FALSE,
+  write_tables = FALSE
+)
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.07
+
+det$sample_cutoff_summary[, c(
+  &quot;sample&quot;,
+  &quot;reference_cutoff&quot;,
+  &quot;first_significant_cutoff_high&quot;,
+  &quot;largest_drop_cutoff&quot;,
+  &quot;selected_cutoff&quot;,
+  &quot;detected_cutoff&quot;,
+  &quot;warning_level&quot;
+)]
+#&gt;   sample reference_cutoff first_significant_cutoff_high largest_drop_cutoff
+#&gt; 1 donor1              0.1                          0.06                0.02
+#&gt; 2 donor2              0.1                          0.07                0.02
+#&gt; 3 donor3              0.1                          0.06                0.03
+#&gt; 4 donor4              0.1                          0.12                0.03
+#&gt;   selected_cutoff detected_cutoff warning_level
+#&gt; 1            0.06            0.06          none
+#&gt; 2            0.07            0.07          none
+#&gt; 3            0.06            0.06          none
+#&gt; 4            0.12            0.12          none
+</code></pre>
+<p><code>selected_cutoff</code> is the v1.4.x reference-aware decision field.
+<code>detected_cutoff</code> is retained as a backward-compatible alias.</p>
+<h2 id="group-aware-multi-sample-qc">Group-aware multi-sample QC</h2>
+<pre><code class="language-r">qc_groupwise &lt;- SCQCmulti(
+  pbmc,
+  sample_col = &quot;sample&quot;,
+  group_col = &quot;group&quot;,
+  mito_col = &quot;mitoRatio&quot;,
+  cutoff_strategy = &quot;groupwise&quot;,
+  scdet_options = list(sample_cutoff_method = &quot;reference_guided&quot;),
+  species = &quot;human&quot;,
+  tissue = &quot;PBMC&quot;,
+  min_genes = 0,
+  min_counts = 0,
+  removeDouble = FALSE,
+  write_plots = FALSE,
+  write_tables = FALSE
+)
+#&gt; Performing quality control for single-cell RNA-seq data...
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.07
+#&gt; Performing quality control for single-cell RNA-seq data...
+#&gt; QC Summary [before]:
+#&gt;   CellCounts GenesCounts_median TranscriptCounts_median MitoRatio_median  Stage
+#&gt; 1       2500               3278                   11223       0.02855648 before
+#&gt;   MitoCutoff CellsRemoved RetentionRate
+#&gt; 1       0.07            0             1
+#&gt; mitoRatio cutoff was set to: 0.07
+#&gt; Other QC indicators:
+#&gt; min_genes: 0
+#&gt; max_genes: Inf
+#&gt; min_counts: 0
+#&gt; max_counts: Inf
+#&gt; Perform cell filtering ...
+#&gt; QC Summary [after]:
+#&gt;   CellCounts GenesCounts_median TranscriptCounts_median MitoRatio_median Stage
+#&gt; 1       2428               3303                   11339       0.02824388 after
+#&gt;   MitoCutoff CellsRemoved RetentionRate
+#&gt; 1       0.07           72        0.9712
+#&gt; Performing quality control for single-cell RNA-seq data...
+#&gt; QC Summary [before]:
+#&gt;   CellCounts GenesCounts_median TranscriptCounts_median MitoRatio_median  Stage
+#&gt; 1       2500               3193                   10855       0.02098502 before
+#&gt;   MitoCutoff CellsRemoved RetentionRate
+#&gt; 1       0.07            0             1
+#&gt; mitoRatio cutoff was set to: 0.07
+#&gt; Other QC indicators:
+#&gt; min_genes: 0
+#&gt; max_genes: Inf
+#&gt; min_counts: 0
+#&gt; max_counts: Inf
+#&gt; Perform cell filtering ...
+#&gt; QC Summary [after]:
+#&gt;   CellCounts GenesCounts_median TranscriptCounts_median MitoRatio_median Stage
+#&gt; 1       2351               3253                   11161       0.02051969 after
+#&gt;   MitoCutoff CellsRemoved RetentionRate
+#&gt; 1       0.07          149        0.9404
+#&gt; Performing quality control for single-cell RNA-seq data...
+#&gt; QC Summary [before]:
+#&gt;   CellCounts GenesCounts_median TranscriptCounts_median MitoRatio_median  Stage
+#&gt; 1       2500               3155                   12008       0.03149622 before
+#&gt;   MitoCutoff CellsRemoved RetentionRate
+#&gt; 1       0.12            0             1
+#&gt; mitoRatio cutoff was set to: 0.12
+#&gt; Other QC indicators:
+#&gt; min_genes: 0
+#&gt; max_genes: Inf
+#&gt; min_counts: 0
+#&gt; max_counts: Inf
+#&gt; Perform cell filtering ...
+#&gt; QC Summary [after]:
+#&gt;   CellCounts GenesCounts_median TranscriptCounts_median MitoRatio_median Stage
+#&gt; 1       2432             3173.5                 12123.5       0.03112036 after
+#&gt;   MitoCutoff CellsRemoved RetentionRate
+#&gt; 1       0.12           68        0.9728
+#&gt; Performing quality control for single-cell RNA-seq data...
+#&gt; QC Summary [before]:
+#&gt;   CellCounts GenesCounts_median TranscriptCounts_median MitoRatio_median  Stage
+#&gt; 1       2500               2980                    9732       0.04129406 before
+#&gt;   MitoCutoff CellsRemoved RetentionRate
+#&gt; 1       0.12            0             1
+#&gt; mitoRatio cutoff was set to: 0.12
+#&gt; Other QC indicators:
+#&gt; min_genes: 0
+#&gt; max_genes: Inf
+#&gt; min_counts: 0
+#&gt; max_counts: Inf
+#&gt; Perform cell filtering ...
+#&gt; QC Summary [after]:
+#&gt;   CellCounts GenesCounts_median TranscriptCounts_median MitoRatio_median Stage
+#&gt; 1       2364               3019                  9992.5        0.0397845 after
+#&gt;   MitoCutoff CellsRemoved RetentionRate
+#&gt; 1       0.12          136        0.9456
+
+qc_groupwise@misc$SCdetMito_QC$group_plan
+#&gt;       group_id group_cutoff sample_count support_count support_fraction
+#&gt; 1 female_36_50         0.12            2             1              0.5
+#&gt; 2   male_18_35         0.07            2             1              0.5
+#&gt;   required_support global_cutoff n_supporting_samples n_total_samples  strategy
+#&gt; 1                1          0.12                    1               2 groupwise
+#&gt; 2                1          0.07                    1               2 groupwise
+#&gt;          group
+#&gt; 1 female_36_50
+#&gt; 2   male_18_35
+</code></pre>
+<h2 id="benchmarking-and-sensitivity">Benchmarking and sensitivity</h2>
+<pre><code class="language-r">benchmark &lt;- SCQCbenchmark(
+  pbmc,
+  sample_col = &quot;sample&quot;,
+  group_col = &quot;group&quot;,
+  species = &quot;human&quot;,
+  tissue = &quot;PBMC&quot;,
+  min_genes = 0,
+  min_counts = 0,
+  removeDouble = FALSE,
+  run_downstream = FALSE,
+  plot = FALSE,
+  output_dir = tempdir()
+)
+#&gt; Performing quality control for single-cell RNA-seq data...
+#&gt; QC Summary [before]:
+#&gt;   CellCounts GenesCounts_median TranscriptCounts_median MitoRatio_median  Stage
+#&gt; 1      10000               3156                 10975.5       0.02993979 before
+#&gt;   Mode MitoCutoff CellsRemoved RetentionRate CutoffStrategy AppliedCutoffMin
+#&gt; 1  all       0.05            0             1      consensus             0.05
+#&gt;   AppliedCutoffMedian AppliedCutoffMax
+#&gt; 1                0.05             0.05
+#&gt; Applied mitoRatio cutoff range: 0.05 - 0.05
+#&gt; QC Summary [after]:
+#&gt;   CellCounts GenesCounts_median TranscriptCounts_median MitoRatio_median Stage
+#&gt; 1       8330               3225                   11411       0.02710485 after
+#&gt;   Mode MitoCutoff CellsRemoved RetentionRate CutoffStrategy AppliedCutoffMin
+#&gt; 1  all       0.05         1670         0.833      consensus             0.05
+#&gt;   AppliedCutoffMedian AppliedCutoffMax
+#&gt; 1                0.05             0.05
+#&gt; Performing quality control for single-cell RNA-seq data...
+#&gt; QC Summary [before]:
+#&gt;   CellCounts GenesCounts_median TranscriptCounts_median MitoRatio_median  Stage
+#&gt; 1      10000               3156                 10975.5       0.02993979 before
+#&gt;   Mode MitoCutoff CellsRemoved RetentionRate CutoffStrategy AppliedCutoffMin
+#&gt; 1  all        0.1            0             1      consensus              0.1
+#&gt;   AppliedCutoffMedian AppliedCutoffMax
+#&gt; 1                 0.1              0.1
+#&gt; Applied mitoRatio cutoff range: 0.1 - 0.1
+#&gt; QC Summary [after]:
+#&gt;   CellCounts GenesCounts_median TranscriptCounts_median MitoRatio_median Stage
+#&gt; 1       9638               3185                 11148.5       0.02929395 after
+#&gt;   Mode MitoCutoff CellsRemoved RetentionRate CutoffStrategy AppliedCutoffMin
+#&gt; 1  all        0.1          362        0.9638      consensus              0.1
+#&gt;   AppliedCutoffMedian AppliedCutoffMax
+#&gt; 1                 0.1              0.1
+#&gt; Performing quality control for single-cell RNA-seq data...
+#&gt; QC Summary [before]:
+#&gt;   CellCounts GenesCounts_median TranscriptCounts_median MitoRatio_median  Stage
+#&gt; 1      10000               3156                 10975.5       0.02993979 before
+#&gt;   Mode MitoCutoff CellsRemoved RetentionRate CutoffStrategy AppliedCutoffMin
+#&gt; 1  all       0.15            0             1      consensus             0.15
+#&gt;   AppliedCutoffMedian AppliedCutoffMax
+#&gt; 1                0.15             0.15
+#&gt; Applied mitoRatio cutoff range: 0.15 - 0.15
+#&gt; QC Summary [after]:
+#&gt;   CellCounts GenesCounts_median TranscriptCounts_median MitoRatio_median Stage
+#&gt; 1       9803               3172                   11077       0.02964602 after
+#&gt;   Mode MitoCutoff CellsRemoved RetentionRate CutoffStrategy AppliedCutoffMin
+#&gt; 1  all       0.15          197        0.9803      consensus             0.15
+#&gt;   AppliedCutoffMedian AppliedCutoffMax
+#&gt; 1                0.15             0.15
+#&gt; Performing quality control for single-cell RNA-seq data...
+#&gt; QC Summary [before]:
+#&gt;   CellCounts GenesCounts_median TranscriptCounts_median MitoRatio_median  Stage
+#&gt; 1      10000               3156                 10975.5       0.02993979 before
+#&gt;   Mode MitoCutoff CellsRemoved RetentionRate CutoffStrategy AppliedCutoffMin
+#&gt; 1  all        0.2            0             1      consensus              0.2
+#&gt;   AppliedCutoffMedian AppliedCutoffMax
+#&gt; 1                 0.2              0.2
+#&gt; Applied mitoRatio cutoff range: 0.2 - 0.2
+#&gt; QC Summary [after]:
+#&gt;   CellCounts GenesCounts_median TranscriptCounts_median MitoRatio_median Stage
+#&gt; 1       9838               3170                   11058       0.02969651 after
+#&gt;   Mode MitoCutoff CellsRemoved RetentionRate CutoffStrategy AppliedCutoffMin
+#&gt; 1  all        0.2          162        0.9838      consensus              0.2
+#&gt;   AppliedCutoffMedian AppliedCutoffMax
+#&gt; 1                 0.2              0.2
+#&gt; Performing quality control for single-cell RNA-seq data...
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.03
+#&gt; QC Summary [before]:
+#&gt;   CellCounts GenesCounts_median TranscriptCounts_median MitoRatio_median  Stage
+#&gt; 1      10000               3156                 10975.5       0.02993979 before
+#&gt;   Mode MitoCutoff CellsRemoved RetentionRate CutoffStrategy AppliedCutoffMin
+#&gt; 1  all       0.03            0             1      consensus             0.03
+#&gt;   AppliedCutoffMedian AppliedCutoffMax
+#&gt; 1                0.03             0.03
+#&gt; Applied mitoRatio cutoff range: 0.03 - 0.03
+#&gt; QC Summary [after]:
+#&gt;   CellCounts GenesCounts_median TranscriptCounts_median MitoRatio_median Stage
+#&gt; 1       5022               3268                 11664.5       0.02206771 after
+#&gt;   Mode MitoCutoff CellsRemoved RetentionRate CutoffStrategy AppliedCutoffMin
+#&gt; 1  all       0.03         4978        0.5022      consensus             0.03
+#&gt;   AppliedCutoffMedian AppliedCutoffMax
+#&gt; 1                0.03             0.03
+#&gt; Performing quality control for single-cell RNA-seq data...
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.07
+#&gt; QC Summary [before]:
+#&gt;   CellCounts GenesCounts_median TranscriptCounts_median MitoRatio_median  Stage
+#&gt; 1      10000               3156                 10975.5       0.02993979 before
+#&gt;   Mode MitoCutoff CellsRemoved RetentionRate CutoffStrategy AppliedCutoffMin
+#&gt; 1  all       0.07            0             1      consensus             0.07
+#&gt;   AppliedCutoffMedian AppliedCutoffMax
+#&gt; 1                0.07             0.07
+#&gt; Applied mitoRatio cutoff range: 0.07 - 0.07
+#&gt; QC Summary [after]:
+#&gt;   CellCounts GenesCounts_median TranscriptCounts_median MitoRatio_median Stage
+#&gt; 1       9277               3203                   11272        0.0286285 after
+#&gt;   Mode MitoCutoff CellsRemoved RetentionRate CutoffStrategy AppliedCutoffMin
+#&gt; 1  all       0.07          723        0.9277      consensus             0.07
+#&gt;   AppliedCutoffMedian AppliedCutoffMax
+#&gt; 1                0.07             0.07
+#&gt; Performing quality control for single-cell RNA-seq data...
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.07
+#&gt; QC Summary [before]:
+#&gt;   CellCounts GenesCounts_median TranscriptCounts_median MitoRatio_median  Stage
+#&gt; 1      10000               3156                 10975.5       0.02993979 before
+#&gt;   Mode MitoCutoff CellsRemoved RetentionRate CutoffStrategy AppliedCutoffMin
+#&gt; 1  all       0.07            0             1      consensus             0.07
+#&gt;   AppliedCutoffMedian AppliedCutoffMax
+#&gt; 1                0.07             0.07
+#&gt; Applied mitoRatio cutoff range: 0.07 - 0.07
+#&gt; QC Summary [after]:
+#&gt;   CellCounts GenesCounts_median TranscriptCounts_median MitoRatio_median Stage
+#&gt; 1       9277               3203                   11272        0.0286285 after
+#&gt;   Mode MitoCutoff CellsRemoved RetentionRate CutoffStrategy AppliedCutoffMin
+#&gt; 1  all       0.07          723        0.9277      consensus             0.07
+#&gt;   AppliedCutoffMedian AppliedCutoffMax
+#&gt; 1                0.07             0.07
+#&gt; Performing quality control for single-cell RNA-seq data...
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.03
+#&gt; QC Summary [before]:
+#&gt;   CellCounts GenesCounts_median TranscriptCounts_median MitoRatio_median  Stage
+#&gt; 1      10000               3156                 10975.5       0.02993979 before
+#&gt;   Mode MitoCutoff CellsRemoved RetentionRate CutoffStrategy AppliedCutoffMin
+#&gt; 1  all       0.02            0             1      strictest             0.02
+#&gt;   AppliedCutoffMedian AppliedCutoffMax
+#&gt; 1                0.02             0.02
+#&gt; Applied mitoRatio cutoff range: 0.02 - 0.02
+#&gt; QC Summary [after]:
+#&gt;   CellCounts GenesCounts_median TranscriptCounts_median MitoRatio_median Stage
+#&gt; 1       1800             3227.5                   11212        0.0167401 after
+#&gt;   Mode MitoCutoff CellsRemoved RetentionRate CutoffStrategy AppliedCutoffMin
+#&gt; 1  all       0.02         8200          0.18      strictest             0.02
+#&gt;   AppliedCutoffMedian AppliedCutoffMax
+#&gt; 1                0.02             0.02
+#&gt; Performing quality control for single-cell RNA-seq data...
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.03
+#&gt; QC Summary [before]:
+#&gt;   CellCounts GenesCounts_median TranscriptCounts_median MitoRatio_median  Stage
+#&gt; 1      10000               3156                 10975.5       0.02993979 before
+#&gt;   Mode MitoCutoff CellsRemoved RetentionRate CutoffStrategy AppliedCutoffMin
+#&gt; 1  all       0.03            0             1      groupwise             0.02
+#&gt;   AppliedCutoffMedian AppliedCutoffMax
+#&gt; 1               0.025             0.03
+#&gt; Applied mitoRatio cutoff range: 0.02 - 0.03
+#&gt; QC Summary [after]:
+#&gt;   CellCounts GenesCounts_median TranscriptCounts_median MitoRatio_median Stage
+#&gt; 1       3130               3212                 11463.5       0.01923456 after
+#&gt;   Mode MitoCutoff CellsRemoved RetentionRate CutoffStrategy AppliedCutoffMin
+#&gt; 1  all       0.03         6870         0.313      groupwise             0.02
+#&gt;   AppliedCutoffMedian AppliedCutoffMax
+#&gt; 1               0.025             0.03
+
+benchmark$recommended_strategies
+#&gt;     scoring_profile    recommended_adaptive_strategy recommended_strategy
+#&gt; 1          balanced SCdetMito_first_significant_high             fixed_20
+#&gt; 2 retention_focused SCdetMito_first_significant_high             fixed_20
+#&gt; 3    stringent_mito              SCdetMito_groupwise  SCdetMito_groupwise
+#&gt; 4   balance_focused SCdetMito_first_significant_high             fixed_20
+#&gt;   top_scoring_strategy                adaptive_strategy    overall_strategy
+#&gt; 1             fixed_20 SCdetMito_first_significant_high            fixed_20
+#&gt; 2             fixed_20 SCdetMito_first_significant_high            fixed_20
+#&gt; 3  SCdetMito_groupwise              SCdetMito_groupwise SCdetMito_groupwise
+#&gt; 4             fixed_20 SCdetMito_first_significant_high            fixed_20
+#&gt;   retention_rate median_mito_after sample_retention_cv group_retention_cv
+#&gt; 1         0.9277        0.02862850          0.05944716         0.04283648
+#&gt; 2         0.9277        0.02862850          0.05944716         0.04283648
+#&gt; 3         0.3130        0.01923456          0.47194054         0.08855778
+#&gt; 4         0.9277        0.02862850          0.05944716         0.04283648
+#&gt;   overall_score
+#&gt; 1        0.7274
+#&gt; 2        0.8085
+#&gt; 3        0.6463
+#&gt; 4        0.8176
+</code></pre>
+<pre><code class="language-r">sensitivity &lt;- SCdetMito_sensitivity(
+  pbmc,
+  sample_col = &quot;sample&quot;,
+  mito_col = &quot;mitoRatio&quot;,
+  species = &quot;human&quot;,
+  tissue = &quot;PBMC&quot;,
+  sample_cutoff_method = c(&quot;largest_drop&quot;, &quot;reference_guided&quot;),
+  return_details = TRUE,
+  write_plots = FALSE,
+  write_tables = FALSE
+)
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.03
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.04
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.03
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.04
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.03
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.04
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.03
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.04
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.03
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.04
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.03
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.04
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.03
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.04
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.03
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.04
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.03
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.04
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Warning: empirical_tail p-values are rank-based and highly discrete;
+#&gt; multiple-testing adjustment may be overly conservative and can increase
+#&gt; fallback frequency.
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Warning: empirical_tail p-values are rank-based and highly discrete;
+#&gt; multiple-testing adjustment may be overly conservative and can increase
+#&gt; fallback frequency.
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Warning: empirical_tail p-values are rank-based and highly discrete;
+#&gt; multiple-testing adjustment may be overly conservative and can increase
+#&gt; fallback frequency.
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Warning: empirical_tail p-values are rank-based and highly discrete;
+#&gt; multiple-testing adjustment may be overly conservative and can increase
+#&gt; fallback frequency.
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Warning: empirical_tail p-values are rank-based and highly discrete;
+#&gt; multiple-testing adjustment may be overly conservative and can increase
+#&gt; fallback frequency.
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Warning: empirical_tail p-values are rank-based and highly discrete;
+#&gt; multiple-testing adjustment may be overly conservative and can increase
+#&gt; fallback frequency.
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Warning: empirical_tail p-values are rank-based and highly discrete;
+#&gt; multiple-testing adjustment may be overly conservative and can increase
+#&gt; fallback frequency.
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Warning: empirical_tail p-values are rank-based and highly discrete;
+#&gt; multiple-testing adjustment may be overly conservative and can increase
+#&gt; fallback frequency.
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Warning: empirical_tail p-values are rank-based and highly discrete;
+#&gt; multiple-testing adjustment may be overly conservative and can increase
+#&gt; fallback frequency.
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Warning: empirical_tail p-values are rank-based and highly discrete;
+#&gt; multiple-testing adjustment may be overly conservative and can increase
+#&gt; fallback frequency.
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Warning: empirical_tail p-values are rank-based and highly discrete;
+#&gt; multiple-testing adjustment may be overly conservative and can increase
+#&gt; fallback frequency.
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Warning: empirical_tail p-values are rank-based and highly discrete;
+#&gt; multiple-testing adjustment may be overly conservative and can increase
+#&gt; fallback frequency.
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Warning: empirical_tail p-values are rank-based and highly discrete;
+#&gt; multiple-testing adjustment may be overly conservative and can increase
+#&gt; fallback frequency.
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Warning: empirical_tail p-values are rank-based and highly discrete;
+#&gt; multiple-testing adjustment may be overly conservative and can increase
+#&gt; fallback frequency.
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Warning: empirical_tail p-values are rank-based and highly discrete;
+#&gt; multiple-testing adjustment may be overly conservative and can increase
+#&gt; fallback frequency.
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Warning: empirical_tail p-values are rank-based and highly discrete;
+#&gt; multiple-testing adjustment may be overly conservative and can increase
+#&gt; fallback frequency.
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Warning: empirical_tail p-values are rank-based and highly discrete;
+#&gt; multiple-testing adjustment may be overly conservative and can increase
+#&gt; fallback frequency.
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Warning: empirical_tail p-values are rank-based and highly discrete;
+#&gt; multiple-testing adjustment may be overly conservative and can increase
+#&gt; fallback frequency.
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.08
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.08
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.08
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.08
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.08
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.08
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.07
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.08
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.07
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.08
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.07
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.08
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Warning: empirical_tail p-values are rank-based and highly discrete;
+#&gt; multiple-testing adjustment may be overly conservative and can increase
+#&gt; fallback frequency.
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Warning: empirical_tail p-values are rank-based and highly discrete;
+#&gt; multiple-testing adjustment may be overly conservative and can increase
+#&gt; fallback frequency.
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Warning: empirical_tail p-values are rank-based and highly discrete;
+#&gt; multiple-testing adjustment may be overly conservative and can increase
+#&gt; fallback frequency.
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Warning: empirical_tail p-values are rank-based and highly discrete;
+#&gt; multiple-testing adjustment may be overly conservative and can increase
+#&gt; fallback frequency.
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Warning: empirical_tail p-values are rank-based and highly discrete;
+#&gt; multiple-testing adjustment may be overly conservative and can increase
+#&gt; fallback frequency.
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Warning: empirical_tail p-values are rank-based and highly discrete;
+#&gt; multiple-testing adjustment may be overly conservative and can increase
+#&gt; fallback frequency.
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Warning: empirical_tail p-values are rank-based and highly discrete;
+#&gt; multiple-testing adjustment may be overly conservative and can increase
+#&gt; fallback frequency.
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Warning: empirical_tail p-values are rank-based and highly discrete;
+#&gt; multiple-testing adjustment may be overly conservative and can increase
+#&gt; fallback frequency.
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Warning: empirical_tail p-values are rank-based and highly discrete;
+#&gt; multiple-testing adjustment may be overly conservative and can increase
+#&gt; fallback frequency.
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Warning: empirical_tail p-values are rank-based and highly discrete;
+#&gt; multiple-testing adjustment may be overly conservative and can increase
+#&gt; fallback frequency.
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Warning: empirical_tail p-values are rank-based and highly discrete;
+#&gt; multiple-testing adjustment may be overly conservative and can increase
+#&gt; fallback frequency.
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Warning: empirical_tail p-values are rank-based and highly discrete;
+#&gt; multiple-testing adjustment may be overly conservative and can increase
+#&gt; fallback frequency.
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Warning: empirical_tail p-values are rank-based and highly discrete;
+#&gt; multiple-testing adjustment may be overly conservative and can increase
+#&gt; fallback frequency.
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Warning: empirical_tail p-values are rank-based and highly discrete;
+#&gt; multiple-testing adjustment may be overly conservative and can increase
+#&gt; fallback frequency.
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Warning: empirical_tail p-values are rank-based and highly discrete;
+#&gt; multiple-testing adjustment may be overly conservative and can increase
+#&gt; fallback frequency.
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Warning: empirical_tail p-values are rank-based and highly discrete;
+#&gt; multiple-testing adjustment may be overly conservative and can increase
+#&gt; fallback frequency.
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Warning: empirical_tail p-values are rank-based and highly discrete;
+#&gt; multiple-testing adjustment may be overly conservative and can increase
+#&gt; fallback frequency.
+#&gt; Sample-supported global mito cutoff: 0.06
+#&gt; Estimating retention-loss enrichment-based mitochondrial cutoffs...
+#&gt; Warning: empirical_tail p-values are rank-based and highly discrete;
+#&gt; multiple-testing adjustment may be overly conservative and can increase
+#&gt; fallback frequency.
+#&gt; Sample-supported global mito cutoff: 0.06
+
+sensitivity$sensitivity_summary
+#&gt;   sample n_parameter_combinations cutoff_median cutoff_iqr cutoff_min
+#&gt; 1 donor1                       72         0.055 0.02750000       0.02
+#&gt; 2 donor2                       72         0.060 0.02333333       0.02
+#&gt; 3 donor3                       72         0.055 0.01583333       0.03
+#&gt; 4 donor4                       72         0.080 0.03333333       0.03
+#&gt;   cutoff_max fallback_fraction not_detected_fraction low_confidence_fraction
+#&gt; 1       0.08               0.5                     0                     0.5
+#&gt; 2       0.08               0.5                     0                     0.5
+#&gt; 3       0.08               0.5                     0                     0.5
+#&gt; 4       0.14               0.5                     0                     0.5
+</code></pre>
+<p>Benchmark scores are user-adjustable summaries. They do not imply a
+universally applicable QC strategy.</p>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-core.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/autoloader/prism-autoloader.min.js" defer></script>
+</body>
+</html>

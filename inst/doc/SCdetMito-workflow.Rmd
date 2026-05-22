@@ -1,0 +1,124 @@
+---
+title: "SCdetMito Workflow"
+vignette: >
+  %\VignetteIndexEntry{SCdetMito Workflow}
+  %\VignetteEngine{knitr::knitr}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+`SCdetMito` provides reference-aware mitochondrial QC decision support for
+Seurat workflows. The package reports retained-cell profiles,
+interval-specific cell loss, literature-informed reference cutoffs, and
+multiple sample-level cutoff candidates.
+
+## Load the bundled PBMC demo
+
+```{r}
+library(SCdetMito)
+
+pbmc <- load_demo_pbmc()
+table(pbmc$sample)
+table(pbmc$group)
+summary(pbmc$mitoRatio)
+```
+
+The bundled demo is a downsampled multi-donor PBMC object derived from public
+10x Genomics GEM-X Human PBMC Donor 1-4 datasets. It is intended for software
+examples and tests, not biological inference.
+
+## Reference-aware sample cutoffs
+
+```{r}
+det <- SCdetMito(
+  pbmc,
+  sample_col = "sample",
+  mito_col = "mitoRatio",
+  species = "human",
+  tissue = "PBMC",
+  sample_cutoff_method = "reference_guided",
+  return_details = TRUE,
+  write_plots = FALSE,
+  write_tables = FALSE
+)
+
+det$sample_cutoff_summary[, c(
+  "sample",
+  "reference_cutoff",
+  "first_significant_cutoff_high",
+  "largest_drop_cutoff",
+  "selected_cutoff",
+  "detected_cutoff",
+  "warning_level"
+)]
+```
+
+`selected_cutoff` is the v1.4.x reference-aware decision field.
+`detected_cutoff` is retained as a backward-compatible alias.
+
+## Group-aware multi-sample QC
+
+```{r}
+qc_groupwise <- SCQCmulti(
+  pbmc,
+  sample_col = "sample",
+  group_col = "group",
+  mito_col = "mitoRatio",
+  cutoff_strategy = "groupwise",
+  scdet_options = list(sample_cutoff_method = "reference_guided"),
+  species = "human",
+  tissue = "PBMC",
+  min_genes = 0,
+  min_counts = 0,
+  removeDouble = FALSE,
+  write_plots = FALSE,
+  write_tables = FALSE
+)
+
+qc_groupwise@misc$SCdetMito_QC$group_plan
+```
+
+## Benchmarking and sensitivity
+
+```{r}
+benchmark <- SCQCbenchmark(
+  pbmc,
+  sample_col = "sample",
+  group_col = "group",
+  species = "human",
+  tissue = "PBMC",
+  min_genes = 0,
+  min_counts = 0,
+  removeDouble = FALSE,
+  run_downstream = FALSE,
+  plot = FALSE,
+  output_dir = tempdir()
+)
+
+benchmark$recommended_strategies
+```
+
+```{r}
+sensitivity <- SCdetMito_sensitivity(
+  pbmc,
+  sample_col = "sample",
+  mito_col = "mitoRatio",
+  species = "human",
+  tissue = "PBMC",
+  sample_cutoff_method = c("largest_drop", "reference_guided"),
+  return_details = TRUE,
+  write_plots = FALSE,
+  write_tables = FALSE
+)
+
+sensitivity$sensitivity_summary
+```
+
+Benchmark scores are user-adjustable summaries. They do not imply a
+universally applicable QC strategy.
