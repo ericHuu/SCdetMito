@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you use SCdetMito, please cite it as below."
+title: "SCdetMito: An R package for reference-aware adaptive mitochondrial quality control in single-cell RNA-seq data"
+version: "1.4.3"
+date-released: "2026-05-23"
+authors:
+  - family-names: "Hu"
+    given-names: "Silu"
+repository-code: "https://github.com/ericHuu/SCdetMito"
+license: "MIT"
+keywords:
+  - single-cell RNA-seq
+  - quality control
+  - mitochondrial reads
+  - Seurat
+  - R package
+  - adaptive threshold
+  - reference-aware QC
+abstract: "SCdetMito is an R package for reference-aware and sample-aware mitochondrial quality control in single-cell RNA-seq data."
