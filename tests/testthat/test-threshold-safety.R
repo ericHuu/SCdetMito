@@ -192,6 +192,16 @@ test_that("auto-apply guardrails flag evidence risk rather than imposing a unive
     reference_cutoff = 0.10,
     retention_fraction_at_recommended = 0.80
   )
+  exact_boundary <- build_recommendation_fields(
+    first_significant_cutoff_high = 0.30,
+    largest_drop_cutoff = 0.30,
+    fallback_cutoff = NA_real_,
+    fallback_used = FALSE,
+    fallback_method = "none",
+    fallback_quantile = 0.9,
+    reference_cutoff = 0.10,
+    retention_fraction_at_recommended = 0.80
+  )
   low_retention <- build_recommendation_fields(
     first_significant_cutoff_high = 0.10,
     largest_drop_cutoff = 0.10,
@@ -227,6 +237,8 @@ test_that("auto-apply guardrails flag evidence risk rather than imposing a unive
   expect_true(cautious$auto_apply_eligible)
   expect_equal(extreme_reference$recommendation_level, "review_required")
   expect_false(extreme_reference$auto_apply_eligible)
+  expect_equal(exact_boundary$recommendation_status, "review_required")
+  expect_false(exact_boundary$auto_apply_eligible)
   expect_false(low_retention$auto_apply_eligible)
   expect_equal(below_auto_floor$recommendation_level, "review_required")
   expect_false(below_auto_floor$auto_apply_eligible)

@@ -53,6 +53,11 @@ cutoff_safety_defaults <- function() {
   )
 }
 
+meets_or_exceeds <- function(value, boundary) {
+  is.finite(value) && is.finite(boundary) &&
+    value >= (boundary - sqrt(.Machine$double.eps))
+}
+
 validate_numeric_scalar <- function(value,
                                     name,
                                     lower = -Inf,
@@ -505,13 +510,13 @@ build_reference_warning <- function(selected_cutoff,
     is.finite(selected_cutoff) &&
     reference_cutoff > 0) {
       ratio <- selected_cutoff / reference_cutoff
-      if (ratio >= safety$max_reference_ratio_for_auto_apply) {
+      if (meets_or_exceeds(ratio, safety$max_reference_ratio_for_auto_apply)) {
         flags <- c(flags, "high_reference_deviation")
         messages <- c(
           messages,
           "The selected cutoff is at least three times the literature-informed reference. Inspect mitochondrial distribution, retained-cell profiles, sample handling, tissue dissociation, post-mortem interval, disease state, and cell-type composition before applying this cutoff."
         )
-      } else if (ratio >= safety$cautious_reference_ratio) {
+      } else if (meets_or_exceeds(ratio, safety$cautious_reference_ratio)) {
         flags <- c(flags, "moderate_reference_deviation")
         messages <- c(
           messages,
@@ -711,7 +716,7 @@ build_recommendation_fields <- function(first_significant_cutoff_high,
     is.finite(recommended_cutoff) &&
     reference_cutoff > 0) {
       reference_ratio <- recommended_cutoff / reference_cutoff
-      if (reference_ratio >= safety$max_reference_ratio_for_auto_apply) {
+      if (meets_or_exceeds(reference_ratio, safety$max_reference_ratio_for_auto_apply)) {
         recommendation_level <- "review_required"
         if (isTRUE(reference_warning)) {
           warnings <- c(
@@ -719,7 +724,7 @@ build_recommendation_fields <- function(first_significant_cutoff_high,
             "Recommended cutoff is at least three times the literature-informed reference; inspect sample quality, dissociation, tissue handling, disease state, and cell composition before applying it."
           )
         }
-      } else if (reference_ratio >= safety$cautious_reference_ratio &&
+      } else if (meets_or_exceeds(reference_ratio, safety$cautious_reference_ratio) &&
         !identical(recommendation_level, "review_required")) {
         recommendation_level <- "cautious"
         if (isTRUE(reference_warning)) {

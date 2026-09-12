@@ -657,7 +657,7 @@ SCdetMito <- function(seurat_obj,
       } else {
         NA_real_
       }
-      reference_deviation_flag <- is.finite(reference_ratio) && reference_ratio >= 2
+      reference_deviation_flag <- meets_or_exceeds(reference_ratio, 2)
       recommended_retained_cells <- if (nrow(profile_at_recommended)) profile_at_recommended$retained_cells[[1]] else NA_real_
       recommended_retention_fraction <- if (nrow(profile_at_recommended)) profile_at_recommended$retention_fraction[[1]] else NA_real_
       recommendation_info <- build_recommendation_fields(
@@ -694,8 +694,10 @@ SCdetMito <- function(seurat_obj,
         !selected_upper_boundary_hit &&
         !(is.finite(retention_fraction_at_cutoff) &&
           retention_fraction_at_cutoff < safety_defaults$min_retention_for_auto_apply) &&
-        !(is.finite(reference_ratio) &&
-          reference_ratio >= safety_defaults$max_reference_ratio_for_auto_apply)
+        !meets_or_exceeds(
+          reference_ratio,
+          safety_defaults$max_reference_ratio_for_auto_apply
+        )
 
       data.frame(
         sample = sample_id,
