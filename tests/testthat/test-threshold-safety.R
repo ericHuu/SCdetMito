@@ -234,7 +234,8 @@ test_that("auto-apply guardrails flag evidence risk rather than imposing a unive
   )
 
   expect_equal(cautious$recommendation_level, "cautious")
-  expect_true(cautious$auto_apply_eligible)
+  expect_equal(cautious$recommendation_status, "review_required")
+  expect_false(cautious$auto_apply_eligible)
   expect_equal(extreme_reference$recommendation_level, "review_required")
   expect_false(extreme_reference$auto_apply_eligible)
   expect_equal(exact_boundary$recommendation_status, "review_required")

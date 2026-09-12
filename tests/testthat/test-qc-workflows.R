@@ -628,7 +628,8 @@ test_that("reference-aware cutoff modes report first-boundary and selected cutof
   expect_equal(strict$sample_cutoff_summary$selected_cutoff, 0.05)
   expect_equal(strict$sample_cutoff_summary$data_candidate_cutoff, 0.05)
   expect_equal(strict$sample_cutoff_summary$recommended_cutoff, 0.20)
-  expect_equal(strict$sample_cutoff_summary$recommendation_status, "data_supported")
+  expect_equal(strict$sample_cutoff_summary$recommendation_status, "review_required")
+  expect_false(strict$sample_cutoff_summary$recommended_auto_apply_eligible)
 })
 
 test_that("SCdetMito adjusts p-values within sample-level candidate intervals", {

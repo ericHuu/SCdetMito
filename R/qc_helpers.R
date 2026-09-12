@@ -771,7 +771,7 @@ build_recommendation_fields <- function(first_significant_cutoff_high,
   }
 
   if (identical(recommendation_status, "data_supported") &&
-    identical(recommendation_level, "review_required")) {
+    recommendation_level %in% c("cautious", "review_required")) {
     recommendation_status <- "review_required"
   }
 
@@ -789,6 +789,7 @@ build_recommendation_fields <- function(first_significant_cutoff_high,
     recommendation_level = recommendation_level,
     auto_apply_eligible = is.finite(recommended_cutoff) &&
       identical(recommendation_status, "data_supported") &&
+      identical(recommendation_level, "standard") &&
       !isTRUE(fallback_used) &&
       !isTRUE(upper_boundary_hit) &&
       !identical(recommendation_level, "review_required"),
