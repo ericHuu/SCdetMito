@@ -1,7 +1,7 @@
 # SCdetMito
 # Author: Silu Hu
 # Contact: husilu0902@gmail.com
-# Version: 1.4.4
+# Version: 1.4.5.9000
 # Last updated: 2026-09-12
 
 if (getRversion() >= "2.15.1") {
@@ -427,7 +427,11 @@ normalize_benchmark_strategies <- function(strategies, group_by = NULL) {
       stop("Each strategy 'scdet_options' entry must be a list.", call. = FALSE)
     }
     if (is.null(strategy$use_recommended_cutoff)) {
-      strategy$use_recommended_cutoff <- TRUE
+      # Benchmarks must remain able to evaluate a diagnostic candidate even
+      # when the operating-domain policy correctly emits no actionable
+      # recommendation. Applying such a candidate is confined to this explicit
+      # comparison workflow and its eligibility is retained in the outputs.
+      strategy$use_recommended_cutoff <- !identical(strategy$max_mito, "SCdetMito")
     }
     if (!is.logical(strategy$use_recommended_cutoff) ||
       length(strategy$use_recommended_cutoff) != 1L ||

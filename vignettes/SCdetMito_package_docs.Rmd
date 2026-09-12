@@ -76,9 +76,10 @@ det$sample_cutoff_summary
 
 `selected_cutoff` is determined by the requested `sample_cutoff_method`.
 `detected_cutoff` is retained as a backward-compatible alias of
-`selected_cutoff`. `recommended_cutoff` is reported for every sample using
-SCdetMito's default reference-aware policy, so strict or exploratory selected
-modes can be compared with the package recommendation.
+`selected_cutoff`. `data_candidate_cutoff` stores the reference-aware
+significant boundary before safety decisions. `recommended_cutoff` is the
+actionable output of the operating-domain policy; it is `NA` when
+`recommendation_status = "no_call"`.
 
 Fallback-derived results, upper search-boundary hits, cutoffs retaining less
 than 80% of cells, and cutoffs at least three times an available literature
@@ -86,10 +87,10 @@ prior are marked review-only. `SCQCone()` and `SCQCmulti()` stop before applying
 such results unless the user supplies an explicit numeric cutoff or sets
 `review_action = "warn_apply"` after inspection.
 
-The separate 30% recommendation guard can move an overly stringent
-reference-nearest candidate to a more permissive significant boundary. The 80%
-automatic-application floor then determines whether that reported candidate can
-be applied without explicit review.
+The 80% operating-domain floor can move an overly stringent reference-nearest
+candidate to a more permissive significant boundary. If only the literature
+prior meets the floor it is `prior_guarded` and review-only; if neither does,
+the function emits a no-call instead of silently applying an extreme value.
 
 ## Mitochondrial Ratio Handling
 

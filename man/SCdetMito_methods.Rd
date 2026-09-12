@@ -17,7 +17,10 @@ and final sample-supported cutoff rules used by \code{SCdetMito()}.
 \details{
 The default loss test is \code{mad_zscore}, a robust upper-tail detector based on
 the median and MAD of the same-sample interval-specific cell losses. It is
-intended as the primary FDR-compatible mode. \code{empirical_tail} remains
+intended as the primary multiplicity-adjustable screening mode. Its tail
+probabilities quantify within-sample interval-loss enrichment and should not
+be interpreted as formal evidence for a biological ground-truth threshold.
+\code{empirical_tail} remains
 available as a non-parametric, highly discrete sensitivity/exploratory mode;
 \code{poisson_tail} and \code{zscore} are parametric sensitivity checks, and
 \code{threshold_only} bypasses statistical enrichment for explicit rule-based QC.

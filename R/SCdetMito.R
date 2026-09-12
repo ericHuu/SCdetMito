@@ -25,12 +25,14 @@
 #' significant intervals are summarized into sample-level cutoff candidates:
 #' the first significant high-to-low boundary, the largest-drop boundary, the
 #' selected cutoff under the requested decision mode, and a package-level
-#' `recommended_cutoff` derived by the default reference-aware recommendation
-#' policy. If the significant boundary nearest a literature prior would retain
-#' fewer than 30% of cells and a more permissive significant boundary reaches
-#' that retention floor, the latter is reported with an explicit retention-
-#' guard provenance label. Reference-deviation guardrails still determine
-#' whether it may be applied automatically. When species/tissue or a user reference is supplied,
+#' `data_candidate_cutoff` derived from significant intervals and an actionable
+#' `recommended_cutoff` derived by the default reference-aware operating-domain
+#' policy. A significant candidate retaining at least 80% of cells is preferred;
+#' otherwise a more permissive significant boundary or a guarded literature
+#' prior can be reported. If neither the data candidate nor the prior satisfies
+#' that operational floor, `recommendation_status = "no_call"` and no actionable
+#' recommendation is issued. Reference-deviation guardrails still determine
+#' whether a reported cutoff may be applied automatically. When species/tissue or a user reference is supplied,
 #' literature-informed reference cutoffs are added for interpretation and
 #' warning generation. A sample-supported global cutoff is returned for
 #' multi-sample inputs.
@@ -113,8 +115,10 @@
 #'   `selected_cutoff` is determined by the user-selected
 #'   `sample_cutoff_method`, `detected_cutoff` is retained as a
 #'   backward-compatible alias of `selected_cutoff`, and `recommended_cutoff`
-#'   is SCdetMito's reference-aware recommendation reported regardless of the
-#'   selected mode. The
+#'   is SCdetMito's reference-aware recommendation. `recommendation_status`
+#'   distinguishes data-supported, prior-guarded, review-required, and no-call
+#'   outcomes; `review_cutoff` preserves diagnostic evidence when
+#'   `recommended_cutoff` is missing. The
 #'   `warning_level` column is human-readable; logical warning columns such as
 #'   `has_reference_deviation`, `has_low_retention_warning`, and
 #'   `has_fallback_warning` are intended for programmatic use. The
@@ -132,7 +136,7 @@ SCdetMito <- function(seurat_obj,
                       by = "sample",
                       bin_width = 0.01,
                       min_cut = 0.01,
-                      max_cut = 1,
+                      max_cut = 0.50,
                       write_tables = NULL,
                       write_plots = NULL,
                       table_out = FALSE,
@@ -568,18 +572,25 @@ SCdetMito <- function(seurat_obj,
           drop = FALSE
         ]
         if (!nrow(profile_at_cutoff) && is.finite(cutoff_value)) {
-          profile_at_cutoff <- retained_cell_profile[
-            retained_cell_profile$sample == sample_id &
-              retained_cell_profile$cutoff == snap_cutoff(cutoff_value),
-            ,
-            drop = FALSE
-          ]
+          sample_values <- mito_values[samples == sample_id]
+          retained <- sum(sample_values <= cutoff_value)
+          profile_at_cutoff <- data.frame(
+            sample = sample_id,
+            cutoff = cutoff_value,
+            n_cells = length(sample_values),
+            retained_cells = retained,
+            retention_fraction = retained / length(sample_values),
+            stringsAsFactors = FALSE
+          )
         }
         profile_at_cutoff
       }
       profile_at_cutoff <- find_profile_at_cutoff(detected_cutoff)
       profile_at_reference_guided <- find_profile_at_cutoff(reference_guided_cutoff)
       profile_at_first_significant_high <- find_profile_at_cutoff(first_significant_cutoff_high)
+      profile_at_largest_drop <- find_profile_at_cutoff(largest_drop_cutoff)
+      profile_at_fallback <- find_profile_at_cutoff(fallback_cutoff)
+      profile_at_reference <- find_profile_at_cutoff(reference_info$reference_cutoff)
       reference_guided_retention <- if (nrow(profile_at_reference_guided)) {
         profile_at_reference_guided$retention_fraction[[1]]
       } else {
@@ -587,6 +598,21 @@ SCdetMito <- function(seurat_obj,
       }
       first_significant_high_retention <- if (nrow(profile_at_first_significant_high)) {
         profile_at_first_significant_high$retention_fraction[[1]]
+      } else {
+        NA_real_
+      }
+      largest_drop_retention <- if (nrow(profile_at_largest_drop)) {
+        profile_at_largest_drop$retention_fraction[[1]]
+      } else {
+        NA_real_
+      }
+      fallback_retention <- if (nrow(profile_at_fallback)) {
+        profile_at_fallback$retention_fraction[[1]]
+      } else {
+        NA_real_
+      }
+      reference_retention <- if (nrow(profile_at_reference)) {
+        profile_at_reference$retention_fraction[[1]]
       } else {
         NA_real_
       }
@@ -602,6 +628,9 @@ SCdetMito <- function(seurat_obj,
         reference_guided_cutoff = reference_guided_cutoff,
         reference_guided_retention = reference_guided_retention,
         first_significant_high_retention = first_significant_high_retention,
+        largest_drop_retention = largest_drop_retention,
+        fallback_retention = fallback_retention,
+        reference_retention = reference_retention,
         upper_boundary_hit = FALSE,
         reference_warning = reference_warning
       )
@@ -643,6 +672,9 @@ SCdetMito <- function(seurat_obj,
         reference_guided_cutoff = reference_guided_cutoff,
         reference_guided_retention = reference_guided_retention,
         first_significant_high_retention = first_significant_high_retention,
+        largest_drop_retention = largest_drop_retention,
+        fallback_retention = fallback_retention,
+        reference_retention = reference_retention,
         upper_boundary_hit = is_upper_boundary_hit(recommendation_preview$recommended_cutoff),
         reference_warning = reference_warning
       )
@@ -674,6 +706,9 @@ SCdetMito <- function(seurat_obj,
         selected_cutoff_source = cutoff_source,
         selected_cutoff_interpretation = selected_cutoff_interpretation,
         recommended_cutoff = recommendation_info$recommended_cutoff,
+        data_candidate_cutoff = recommendation_info$data_candidate_cutoff,
+        data_candidate_retention_fraction = recommendation_info$data_candidate_retention,
+        review_cutoff = recommendation_info$review_cutoff,
         recommended_method = recommendation_info$recommended_method,
         recommended_reason = recommendation_info$recommended_reason,
         recommendation_level = recommendation_info$recommendation_level,
@@ -681,6 +716,8 @@ SCdetMito <- function(seurat_obj,
         recommended_upper_boundary_hit = recommendation_info$upper_boundary_hit,
         recommendation_warning = recommendation_info$recommendation_warning,
         recommendation_source = recommendation_info$recommendation_source,
+        recommendation_status = recommendation_info$recommendation_status,
+        operating_domain_status = recommendation_info$operating_domain_status,
         cutoff_source = cutoff_source,
         fallback_used = fallback_used,
         fallback_method = if (fallback_used) fallback_method else NA_character_,
@@ -692,6 +729,7 @@ SCdetMito <- function(seurat_obj,
         selected_upper_boundary_hit = selected_upper_boundary_hit,
         data_driven_cutoff = if (nrow(sample_sig)) selected_cutoff else NA_real_,
         reference_cutoff = reference_info$reference_cutoff,
+        reference_retention_fraction = reference_retention,
         literature_prior = reference_info$reference_cutoff,
         reference_species = reference_info$reference_species,
         reference_tissue = reference_info$reference_tissue,
@@ -802,6 +840,14 @@ SCdetMito <- function(seurat_obj,
   recommended_auto_apply_eligible <- all(
     sample_cutoff_summary$recommended_auto_apply_eligible %in% TRUE
   )
+  sample_recommendation_statuses <- unique(sample_cutoff_summary$recommendation_status)
+  overall_recommendation_status <- if (!length(finite_recommended_cutoffs)) {
+    "no_call"
+  } else if (length(sample_recommendation_statuses) == 1L) {
+    sample_recommendation_statuses[[1]]
+  } else {
+    "mixed_evidence"
+  }
   support$auto_apply_eligible <- selected_auto_apply_eligible
   recommended_support$auto_apply_eligible <- recommended_auto_apply_eligible
 
@@ -836,7 +882,9 @@ SCdetMito <- function(seurat_obj,
       c(
         "sample", "reference_cutoff", "reference_species",
         "reference_tissue", "reference_source", "reference_ratio",
-        "literature_prior", "data_driven_cutoff",
+        "reference_retention_fraction", "literature_prior",
+        "data_candidate_cutoff", "data_candidate_retention_fraction",
+        "data_driven_cutoff",
         "reference_deviation_flag", "warning_level", "warning_message",
         "has_reference_deviation", "has_high_reference_deviation",
         "has_moderate_reference_deviation"
@@ -852,10 +900,13 @@ SCdetMito <- function(seurat_obj,
     }
     recommendation_columns <- intersect(
       c(
-        "sample", "selected_cutoff", "detected_cutoff", "recommended_cutoff",
+        "sample", "selected_cutoff", "detected_cutoff", "data_candidate_cutoff",
+        "data_candidate_retention_fraction", "recommended_cutoff", "review_cutoff",
         "recommended_method", "recommendation_source", "recommendation_level",
+        "recommendation_status", "operating_domain_status",
         "recommended_auto_apply_eligible", "recommended_upper_boundary_hit",
         "recommended_reason", "recommendation_warning", "reference_cutoff",
+        "reference_retention_fraction",
         "first_significant_cutoff_high", "first_significant_cutoff_low",
         "largest_drop_cutoff", "reference_guided_cutoff",
         "selected_auto_apply_eligible", "selected_upper_boundary_hit",
@@ -907,7 +958,7 @@ SCdetMito <- function(seurat_obj,
     p_adjust_method = p_adj_method,
     alpha = alpha,
     sample_cutoff_method = sample_cutoff_method,
-    recommendation_policy = "reference_guided_significant_boundary_then_fallback_for_review",
+    recommendation_policy = "operating_domain_data_candidate_then_reference_guard_else_no_call",
     detector_mode = classify_detector_mode(loss_test, p_adj_method),
     reference_cutoff = reference_info$reference_cutoff,
     reference_species = reference_info$reference_species,
@@ -917,7 +968,6 @@ SCdetMito <- function(seurat_obj,
     reference_found = reference_info$reference_found,
     reference_warning = reference_warning,
     auto_apply_min_retention = safety_defaults$min_retention_for_auto_apply,
-    recommendation_guard_min_retention = safety_defaults$min_retention_for_recommendation_guard,
     cautious_reference_ratio = safety_defaults$cautious_reference_ratio,
     auto_apply_max_reference_ratio = safety_defaults$max_reference_ratio_for_auto_apply,
     upper_search_boundary = upper_search_boundary,
@@ -936,6 +986,7 @@ SCdetMito <- function(seurat_obj,
     recommended_global_cutoff = recommended_support$global_cutoff,
     recommended_support_fraction = recommended_support$support_fraction,
     recommended_n_supporting_samples = recommended_support$n_supporting_samples,
+    overall_recommendation_status = overall_recommendation_status,
     min_cut = min_cut,
     max_cut = max_cut,
     bin_width = bin_width,
@@ -952,6 +1003,7 @@ SCdetMito <- function(seurat_obj,
     cutoff = global_cutoff,
     data_driven_cutoff = data_driven_support$global_cutoff,
     recommended_cutoff = recommended_support$global_cutoff,
+    recommendation_status = overall_recommendation_status,
     selected_auto_apply_eligible = selected_auto_apply_eligible,
     recommended_auto_apply_eligible = recommended_auto_apply_eligible,
     literature_prior = reference_info$reference_cutoff,

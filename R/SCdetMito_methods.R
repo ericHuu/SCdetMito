@@ -8,7 +8,10 @@
 #' @details
 #' The default loss test is `mad_zscore`, a robust upper-tail detector based on
 #' the median and MAD of the same-sample interval-specific cell losses. It is
-#' intended as the primary FDR-compatible mode. `empirical_tail` remains
+#' intended as the primary multiplicity-adjustable screening mode. Its tail
+#' probabilities quantify within-sample interval-loss enrichment and should not
+#' be interpreted as formal evidence for a biological ground-truth threshold.
+#' `empirical_tail` remains
 #' available as a non-parametric, highly discrete sensitivity/exploratory mode;
 #' `poisson_tail` and `zscore` are parametric sensitivity checks, and
 #' `threshold_only` bypasses statistical enrichment for explicit rule-based QC.
@@ -47,14 +50,14 @@ SCdetMito_methods <- function() {
       ),
       default = c(TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE),
       description = c(
-        "FDR-significant cutoff with the largest retained-cell loss interval; retained as the default for backward compatibility.",
+        "Multiplicity-adjusted interval-loss candidate with the largest retained-cell loss; retained as the default for backward compatibility.",
         "Most permissive significant boundary when scanning candidate cutoffs from high to low.",
         "Most stringent significant boundary when scanning candidate cutoffs from low to high.",
-        "Reference-aware mode that prioritizes the first significant high-to-low boundary when available and reports reference-deviation warnings.",
+        "Reference-aware mode selecting the significant boundary nearest the available literature prior; without a prior, uses the first significant high-to-low boundary.",
         "Largest-drop selection with reference and low-retention warning fields reported.",
-        "Largest FDR-significant cutoff for each sample.",
-        "Median FDR-significant cutoff snapped to the cutoff grid.",
-        "Smallest FDR-significant cutoff for each sample."
+        "Largest multiplicity-adjusted cutoff candidate for each sample.",
+        "Median multiplicity-adjusted cutoff candidate snapped to the cutoff grid.",
+        "Smallest multiplicity-adjusted cutoff candidate for each sample."
       ),
       stringsAsFactors = FALSE
     ),
@@ -62,6 +65,24 @@ SCdetMito_methods <- function() {
       rule = "sample_supported_global_cutoff",
       default = TRUE,
       description = "Return the largest global cutoff supported by at least half of detected sample-level cutoffs by default.",
+      stringsAsFactors = FALSE
+    ),
+    recommendation_statuses = data.frame(
+      status = c(
+        "data_supported",
+        "prior_guarded",
+        "reference_supported",
+        "review_required",
+        "no_call"
+      ),
+      actionable_without_review = c(TRUE, FALSE, FALSE, FALSE, FALSE),
+      description = c(
+        "A qualified interval-loss candidate satisfies routine operating-domain guards.",
+        "A literature prior preserves the operating-domain retention floor when the data candidate does not.",
+        "No qualified interval was found; an operating-domain-compatible literature fallback is reported.",
+        "A numeric candidate is preserved but a safety or evidence guard requires review.",
+        "No actionable recommendation is issued; diagnostic candidates remain available for inspection."
+      ),
       stringsAsFactors = FALSE
     )
   )

@@ -1,0 +1,47 @@
+{
+  "@context": "https://doi.org/10.5063/schema/codemeta-2.0",
+  "@type": "SoftwareSourceCode",
+  "name": "SCdetMito",
+  "description": "Reference-aware assessment of mitochondrial proportion thresholds for single-cell RNA-sequencing quality control.",
+  "version": "1.4.5.9000",
+  "dateModified": "2026-09-12",
+  "codeRepository": "https://github.com/ericHuu/SCdetMito",
+  "issueTracker": "https://github.com/ericHuu/SCdetMito/issues",
+  "license": "https://spdx.org/licenses/MIT.html",
+  "programmingLanguage": {
+    "@type": "ComputerLanguage",
+    "name": "R",
+    "version": ">= 4.1.0"
+  },
+  "runtimePlatform": "R",
+  "applicationCategory": "Bioinformatics",
+  "keywords": [
+    "single-cell RNA sequencing",
+    "quality control",
+    "mitochondrial proportion",
+    "threshold assessment",
+    "Seurat"
+  ],
+  "author": [
+    {
+      "@type": "Person",
+      "givenName": "Silu",
+      "familyName": "Hu",
+      "email": "husilu0902@gmail.com"
+    }
+  ],
+  "maintainer": {
+    "@type": "Person",
+    "givenName": "Silu",
+    "familyName": "Hu",
+    "email": "husilu0902@gmail.com"
+  },
+  "softwareRequirements": [
+    "R >= 4.1.0",
+    "ggplot2",
+    "reshape2",
+    "rlang",
+    "Seurat"
+  ],
+  "developmentStatus": "active"
+}

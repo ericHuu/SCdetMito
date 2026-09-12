@@ -10,7 +10,7 @@ SCdetMito_sensitivity(
   by = "sample",
   mito_col = NULL,
   mitoRatio = "mitoRatio",
-  bin_width = c(0.01, 0.02),
+  bin_width = c(0.005, 0.01, 0.02),
   alpha = c(0.01, 0.05, 0.1),
   min_drop_fraction = c(0.005, 0.01, 0.02),
   loss_test = c("mad_zscore", "empirical_tail"),
@@ -19,6 +19,7 @@ SCdetMito_sensitivity(
   write_plots = FALSE,
   output_dir = ".",
   return_details = FALSE,
+  stability_tolerance = 0.02,
   ...
 )
 }
@@ -52,6 +53,10 @@ Supported values are \code{"mad_zscore"}, \code{"empirical_tail"},
 \item{return_details}{Whether to return both the per-combination table and
 sample-level sensitivity summary. Defaults to \code{FALSE}, which preserves the
 legacy behavior of returning only the per-combination table.}
+
+\item{stability_tolerance}{Absolute cutoff distance from the across-grid
+median counted as stable. The default of \code{0.02} represents two percentage
+points on the mitochondrial fraction scale.}
 
 \item{...}{Additional arguments forwarded to \code{\link[=SCdetMito]{SCdetMito()}}.}
 }

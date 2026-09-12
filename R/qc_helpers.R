@@ -47,7 +47,6 @@ scdetmito_palette <- function(n = 8) {
 
 cutoff_safety_defaults <- function() {
   list(
-    min_retention_for_recommendation_guard = 0.30,
     min_retention_for_auto_apply = 0.80,
     cautious_reference_ratio = 2,
     max_reference_ratio_for_auto_apply = 3
@@ -562,57 +561,95 @@ build_recommendation_fields <- function(first_significant_cutoff_high,
                                         reference_guided_cutoff = NA_real_,
                                         reference_guided_retention = NA_real_,
                                         first_significant_high_retention = NA_real_,
+                                        largest_drop_retention = NA_real_,
+                                        fallback_retention = NA_real_,
+                                        reference_retention = NA_real_,
                                         upper_boundary_hit = FALSE,
                                         reference_warning = TRUE) {
   safety <- cutoff_safety_defaults()
-  use_retention_guard <- is.finite(reference_guided_cutoff) &&
-    is.finite(reference_guided_retention) &&
-    reference_guided_retention < safety$min_retention_for_recommendation_guard &&
-    is.finite(first_significant_cutoff_high) &&
-    first_significant_cutoff_high > reference_guided_cutoff &&
-    is.finite(first_significant_high_retention) &&
-    first_significant_high_retention >= safety$min_retention_for_recommendation_guard
+  operating_floor <- safety$min_retention_for_auto_apply
+  data_candidate_cutoff <- if (is.finite(reference_guided_cutoff)) {
+    reference_guided_cutoff
+  } else if (is.finite(first_significant_cutoff_high)) {
+    first_significant_cutoff_high
+  } else if (is.finite(largest_drop_cutoff)) {
+    largest_drop_cutoff
+  } else {
+    NA_real_
+  }
+  data_candidate_retention <- if (is.finite(reference_guided_cutoff)) {
+    reference_guided_retention
+  } else if (is.finite(first_significant_cutoff_high)) {
+    first_significant_high_retention
+  } else if (is.finite(largest_drop_cutoff)) {
+    largest_drop_retention
+  } else {
+    NA_real_
+  }
 
-  if (use_retention_guard) {
+  # Direct helper callers from earlier releases supplied only the final
+  # retention field. Retain that behavior while allowing the main detector to
+  # provide candidate-specific retention values.
+  if (!is.finite(data_candidate_retention) && is.finite(retention_fraction_at_recommended)) {
+    data_candidate_retention <- retention_fraction_at_recommended
+  }
+
+  first_high_is_operational <- is.finite(first_significant_cutoff_high) &&
+    is.finite(first_significant_high_retention) &&
+    first_significant_high_retention >= operating_floor
+  data_candidate_is_operational <- is.finite(data_candidate_cutoff) &&
+    is.finite(data_candidate_retention) &&
+    data_candidate_retention >= operating_floor
+  reference_is_operational <- is.finite(reference_cutoff) &&
+    is.finite(reference_retention) &&
+    reference_retention >= operating_floor
+
+  if (data_candidate_is_operational) {
+    recommended_cutoff <- data_candidate_cutoff
+    recommended_method <- if (is.finite(reference_guided_cutoff)) "reference_guided" else if (
+      is.finite(first_significant_cutoff_high)
+    ) "first_significant_high" else "largest_drop"
+    recommendation_source <- if (is.finite(reference_guided_cutoff) && is.finite(reference_cutoff)) {
+      "reference_guided_nearest_significant_boundary"
+    } else if (is.finite(first_significant_cutoff_high)) {
+      "first_significant_high"
+    } else {
+      "largest_drop_no_first_significant_high"
+    }
+    recommended_reason <- paste(
+      "A significant interval-loss candidate within the routine operating domain is reported;",
+      "it retains at least 80% of cells in this sample."
+    )
+    recommendation_status <- "data_supported"
+  } else if (first_high_is_operational) {
     recommended_cutoff <- first_significant_cutoff_high
     recommended_method <- "first_significant_high_retention_guard"
     recommendation_source <- "reference_guided_overfilter_guard_first_significant_high"
     recommended_reason <- paste(
-      "The significant boundary nearest the literature prior would retain fewer than 30% of cells;",
-      "the first significant high-to-low boundary with adequate retention is reported instead."
+      "The significant boundary nearest the literature prior falls outside the routine operating domain;",
+      "the first significant high-to-low boundary retaining at least 80% of cells is reported instead."
     )
-  } else if (is.finite(reference_guided_cutoff)) {
-    recommended_cutoff <- reference_guided_cutoff
-    recommended_method <- "reference_guided"
-    recommendation_source <- if (is.finite(reference_cutoff)) {
-      "reference_guided_nearest_significant_boundary"
-    } else {
-      "reference_unavailable_first_significant_high"
-    }
+    recommendation_status <- "data_supported"
+  } else if (reference_is_operational && !isTRUE(fallback_used)) {
+    recommended_cutoff <- reference_cutoff
+    recommended_method <- "reference_retention_guard"
+    recommendation_source <- "literature_prior_retention_guard"
     recommended_reason <- paste(
-      if (is.finite(reference_cutoff)) {
-        "The significant retention-loss boundary nearest the literature prior is reported."
-      } else {
-        "No literature prior was available; the first significant high-to-low boundary is reported."
-      }
+      "The data-derived candidate falls outside the routine operating domain;",
+      "the literature-informed prior is retained as a guarded reference because it preserves at least 80% of cells."
     )
-  } else if (is.finite(first_significant_cutoff_high)) {
-    recommended_cutoff <- first_significant_cutoff_high
-    recommended_method <- "first_significant_high"
-    recommendation_source <- "first_significant_high"
-    recommended_reason <- "The first significant high-to-low retention-loss boundary is reported."
-  } else if (is.finite(largest_drop_cutoff)) {
-    recommended_cutoff <- largest_drop_cutoff
-    recommended_method <- "largest_drop"
-    recommendation_source <- "largest_drop_no_first_significant_high"
+    recommendation_status <- "prior_guarded"
+  } else if (is.finite(data_candidate_cutoff)) {
+    recommended_cutoff <- NA_real_
+    recommended_method <- "no_call"
+    recommendation_source <- "operating_domain_no_call"
     recommended_reason <- paste(
-      "No first significant high-to-low boundary was available;",
-      "the largest significant interval-specific cell loss is reported."
+      "No actionable recommendation is issued because the available data-derived candidate",
+      "and literature prior, when available, do not retain at least 80% of cells."
     )
+    recommendation_status <- "no_call"
   } else if (is.finite(fallback_cutoff)) {
-    recommended_cutoff <- fallback_cutoff
-    recommended_method <- "fallback"
-    recommendation_source <- if (identical(fallback_method, "quantile")) {
+    fallback_source <- if (identical(fallback_method, "quantile")) {
       paste0("quantile_fallback_", format(fallback_quantile, nsmall = 2, trim = TRUE))
     } else if (identical(fallback_method, "reference")) {
       "literature_prior_fallback"
@@ -625,19 +662,44 @@ build_recommendation_fields <- function(first_significant_cutoff_high,
     } else {
       "fallback"
     }
-    recommended_reason <- paste(
-      "No significant interval-specific cell-loss boundary was detected;",
-      "the fallback cutoff is reported for review."
-    )
+    fallback_is_operational <- is.finite(fallback_retention) &&
+      fallback_retention >= operating_floor
+    if (fallback_is_operational) {
+      recommended_cutoff <- fallback_cutoff
+      recommended_method <- "fallback"
+      recommendation_source <- fallback_source
+      recommended_reason <- paste(
+        "No significant interval-specific cell-loss boundary was detected;",
+        "an operating-domain-compatible fallback is reported for review."
+      )
+      recommendation_status <- if (grepl("literature_prior", fallback_source, fixed = TRUE)) {
+        "reference_supported"
+      } else {
+        "review_required"
+      }
+    } else {
+      recommended_cutoff <- NA_real_
+      recommended_method <- "no_call"
+      recommendation_source <- "fallback_operating_domain_no_call"
+      recommended_reason <- paste(
+        "No significant interval-specific cell-loss boundary was detected and the fallback",
+        "does not retain at least 80% of cells; no actionable recommendation is issued."
+      )
+      recommendation_status <- "no_call"
+    }
   } else {
     recommended_cutoff <- NA_real_
     recommended_method <- "not_detected"
     recommendation_source <- "not_detected"
     recommended_reason <- "No recommended cutoff could be derived from the available evidence."
+    recommendation_status <- "no_call"
   }
 
   warnings <- character()
-  recommendation_level <- if (isTRUE(fallback_used) || identical(recommended_method, "fallback")) {
+  recommendation_level <- if (identical(recommendation_status, "no_call")) {
+    "review_required"
+  } else if (isTRUE(fallback_used) || identical(recommended_method, "fallback") ||
+    recommendation_status %in% c("prior_guarded", "reference_supported")) {
     "fallback"
   } else if (!is.finite(recommended_cutoff)) {
     "review_required"
@@ -686,25 +748,58 @@ build_recommendation_fields <- function(first_significant_cutoff_high,
     )
   }
 
-  if (identical(recommendation_level, "fallback")) {
+  if (identical(recommendation_status, "no_call")) {
+    warnings <- c(
+      warnings,
+      "No actionable mitochondrial cutoff is recommended within the package's routine operating domain; inspect the retained-cell profile and candidate cutoffs."
+    )
+  } else if (isTRUE(fallback_used) || identical(recommended_method, "fallback")) {
     warnings <- c(
       warnings,
       "Recommendation is fallback-derived because no significant retention-loss boundary was detected."
     )
+  } else if (identical(recommendation_status, "prior_guarded")) {
+    warnings <- c(
+      warnings,
+      "The literature-informed prior is reported as a guarded reference rather than a data-supported cutoff."
+    )
+  }
+
+  if (identical(recommendation_status, "data_supported") &&
+    identical(recommendation_level, "review_required")) {
+    recommendation_status <- "review_required"
   }
 
   list(
+    data_candidate_cutoff = data_candidate_cutoff,
+    data_candidate_retention = data_candidate_retention,
+    review_cutoff = if (identical(recommendation_status, "no_call")) {
+      data_candidate_cutoff %||% fallback_cutoff
+    } else {
+      NA_real_
+    },
     recommended_cutoff = recommended_cutoff,
     recommended_method = recommended_method,
     recommended_reason = recommended_reason,
     recommendation_level = recommendation_level,
     auto_apply_eligible = is.finite(recommended_cutoff) &&
+      identical(recommendation_status, "data_supported") &&
       !isTRUE(fallback_used) &&
       !isTRUE(upper_boundary_hit) &&
       !identical(recommendation_level, "review_required"),
     upper_boundary_hit = isTRUE(upper_boundary_hit),
     recommendation_warning = if (length(warnings)) paste(unique(warnings), collapse = " ") else NA_character_,
-    recommendation_source = recommendation_source
+    recommendation_source = recommendation_source,
+    recommendation_status = recommendation_status,
+    operating_domain_status = if (identical(recommendation_status, "no_call")) {
+      "outside_routine_domain"
+    } else if (recommendation_status %in% c("prior_guarded", "reference_supported")) {
+      "guarded_reference"
+    } else if (identical(recommendation_status, "review_required")) {
+      "within_retention_domain_review_required"
+    } else {
+      "within_routine_domain"
+    }
   )
 }
 

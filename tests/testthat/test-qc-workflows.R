@@ -243,7 +243,7 @@ test_that("public exports include intended wrappers and exclude dot-prefixed hel
   exports <- getNamespaceExports("SCdetMito")
   expected_exports <- c(
     "SCdetMito", "SCQCone", "SCQCmulti", "SCQCbenchmark",
-    "SCdetMito_sensitivity", "SCdetMito_methods",
+    "SCdetMito_sensitivity", "SCdetMito_methods", "validate_mito_cutoff",
     "SCdetMito_reference_cutoffs", "ensure_mito_ratio",
     "add_mitoRatio", "load_demo_pbmc", "load_demo_seurat", "load_pbmc3k_online",
     "load_heart10k_online", "load_mousebrain5k_online"
@@ -372,8 +372,11 @@ test_that("SCdetMito exposes selectable detection methods", {
   methods <- SCdetMito_methods()
 
   expect_true("loss_tests" %in% names(methods))
+  expect_true("recommendation_statuses" %in% names(methods))
   expect_true(any(methods$loss_tests$method == "mad_zscore" & methods$loss_tests$default))
   expect_false(any(methods$loss_tests$method == "empirical_tail" & methods$loss_tests$default))
+  expect_true(all(c("data_supported", "prior_guarded", "no_call") %in%
+    methods$recommendation_statuses$status))
   expect_true("poisson_tail" %in% methods$loss_tests$method)
   expect_true("mad_zscore" %in% methods$loss_tests$method)
   expect_true("BH" %in% methods$p_adjust_methods$method)
@@ -623,7 +626,9 @@ test_that("reference-aware cutoff modes report first-boundary and selected cutof
   )
   expect_true("warning_level" %in% colnames(guided$sample_cutoff_summary))
   expect_equal(strict$sample_cutoff_summary$selected_cutoff, 0.05)
-  expect_equal(strict$sample_cutoff_summary$recommended_cutoff, 0.05)
+  expect_equal(strict$sample_cutoff_summary$data_candidate_cutoff, 0.05)
+  expect_equal(strict$sample_cutoff_summary$recommended_cutoff, 0.20)
+  expect_equal(strict$sample_cutoff_summary$recommendation_status, "data_supported")
 })
 
 test_that("SCdetMito adjusts p-values within sample-level candidate intervals", {
@@ -790,6 +795,7 @@ test_that("SCQCone and SCQCmulti support custom metric columns", {
     by = "sample",
     mode = "all",
     max_mito = "SCdetMito",
+    use_recommended_cutoff = FALSE,
     scdet_options = list(
       loss_test = "threshold_only",
       p_adjust_method = "bonferroni",
@@ -813,7 +819,7 @@ test_that("SCQCone and SCQCmulti support custom metric columns", {
   expect_true(file.exists(file.path(output_dir, "SCQCmulti_all_summary.csv")))
   expect_true(file.exists(file.path(output_dir, "SCQCmulti_split_summary.csv")))
   expect_equal(qc_adaptive@misc$SCdetMito_QC$detection$settings$p_adjust_method, "bonferroni")
-  expect_equal(qc_adaptive@misc$SCdetMito_QC$cutoff_applied_source, "recommended_cutoff")
+  expect_equal(qc_adaptive@misc$SCdetMito_QC$cutoff_applied_source, "selected_cutoff")
   expect_true(is.finite(qc_adaptive@misc$SCdetMito_QC$recommended_cutoff))
   expect_equal(qc_one@misc$SCdetMito_QC$package, "SCdetMito")
   expect_true(is.list(qc_all@misc$SCdetMito_QC$provenance))
@@ -946,8 +952,17 @@ test_that("SCdetMito_sensitivity returns sample-level cutoff stability rows", {
     "cutoff_min",
     "cutoff_max",
     "fallback_fraction",
-    "not_detected_fraction"
+    "not_detected_fraction",
+    "recommended_stability_score",
+    "recommended_cutoff_iqr",
+    "cutoff_stability",
+    "data_supported_fraction",
+    "no_call_fraction"
   ) %in% colnames(sensitivity_details$sensitivity_summary)))
+  expect_true(all(
+    sensitivity_details$sensitivity_summary$recommended_stability_score >= 0 &
+      sensitivity_details$sensitivity_summary$recommended_stability_score <= 1
+  ))
 })
 
 test_that("QC functions normalize percentage-style mitochondrial cutoffs", {

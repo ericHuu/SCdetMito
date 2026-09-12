@@ -1,7 +1,7 @@
 # SCdetMito
 # Author: Silu Hu
 # Contact: husilu0902@gmail.com
-# Version: 1.4.4
+# Version: 1.4.5.9000
 # Last updated: 2026-09-12
 
 common_mito_patterns <- function() {

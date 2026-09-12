@@ -1,13 +1,26 @@
 # SCdetMito development version
 
-## Phase 3 comparative validation framework
+## SoftwareX readiness and operating-domain calibration
 
 - Started a separate post-1.4.4 development line for comparator benchmarking,
   simulation calibration, and manuscript-facing validation without altering
   the frozen 1.4.4 release.
-- Separated the 30% recommendation over-filter guard from a stricter 80%
-  automatic-application retention floor. Candidate cutoffs remain reportable,
-  while removal of more than 20% of cells now requires explicit review.
+- Formalized separate literature prior, data candidate, actionable
+  recommendation, and review-candidate fields.
+- Added explicit `data_supported`, `prior_guarded`, `reference_supported`,
+  `review_required`, and `no_call` recommendation states.
+- Applied an 80% routine operating-domain floor: safer significant boundaries
+  are preferred when available, literature priors can be retained for guarded
+  review, and evidence outside the domain now produces a no-call rather than an
+  extreme actionable threshold.
+- Reduced the routine default search ceiling from 100% to 50%; wider searches
+  remain available through explicit `max_cut` settings.
+- Expanded `SCdetMito_sensitivity()` with recommendation stability scores,
+  recommendation IQRs, evidence fractions, and no-call fractions.
+- Added `validate_mito_cutoff()` for non-decisional concordance checks against
+  detected-feature and count metrics.
+- Added cross-platform GitHub Actions R CMD check configuration, CodeMeta
+  metadata, and an offline one-command quick-start example.
 
 # SCdetMito 1.4.4
 

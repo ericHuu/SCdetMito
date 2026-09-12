@@ -1,7 +1,7 @@
 # SCdetMito
 # Author: Silu Hu
 # Contact: husilu0902@gmail.com
-# Version: 1.4.4
+# Version: 1.4.5.9000
 # Last updated: 2026-09-12
 
 #' SCQCone: perform QC for a single single-cell RNA-seq sample or group
@@ -204,8 +204,7 @@ SCQCone <- function(seurat_obj,
     )
     summary <- detection_details$sample_cutoff_summary
     cutoff_column <- if (isTRUE(use_recommended_cutoff) &&
-      "recommended_cutoff" %in% colnames(summary) &&
-      any(is.finite(summary$recommended_cutoff))) {
+      "recommended_cutoff" %in% colnames(summary)) {
         "recommended_cutoff"
       } else {
         "selected_cutoff"
@@ -223,9 +222,12 @@ SCQCone <- function(seurat_obj,
       FALSE
     }
     if (!is.finite(inferred_mito_cutoff)) {
-      inferred_mito_cutoff <- detection_details$cutoff
-      cutoff_applied_source <- "sample_supported_global_cutoff"
-      cutoff_auto_apply_eligible <- FALSE
+      stop(
+        "SCdetMito returned no actionable recommended cutoff within the routine operating domain. ",
+        "Inspect sample_cutoff_summary$review_cutoff, or set use_recommended_cutoff = FALSE ",
+        "to explicitly use the diagnostic selected cutoff.",
+        call. = FALSE
+      )
     }
     seurat_obj@meta.data[[temp_group_column]] <- NULL
     enforce_cutoff_review_policy(

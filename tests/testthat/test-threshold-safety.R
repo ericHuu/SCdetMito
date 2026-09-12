@@ -233,8 +233,36 @@ test_that("auto-apply guardrails flag evidence risk rather than imposing a unive
   expect_true(high_without_prior$auto_apply_eligible)
 })
 
-test_that("low-retention reference guidance yields a safer review alternative", {
+test_that("low-retention reference guidance yields an operating-domain alternative", {
   guarded <- build_recommendation_fields(
+    first_significant_cutoff_high = 0.22,
+    largest_drop_cutoff = 0.05,
+    fallback_cutoff = NA_real_,
+    fallback_used = FALSE,
+    fallback_method = "none",
+    fallback_quantile = 0.9,
+    reference_cutoff = 0.05,
+    retention_fraction_at_recommended = 0.82,
+    reference_guided_cutoff = 0.05,
+    reference_guided_retention = 0.10,
+    first_significant_high_retention = 0.82,
+    reference_retention = 0.10
+  )
+
+  expect_equal(guarded$recommended_cutoff, 0.22)
+  expect_equal(guarded$recommended_method, "first_significant_high_retention_guard")
+  expect_equal(
+    guarded$recommendation_source,
+    "reference_guided_overfilter_guard_first_significant_high"
+  )
+  expect_equal(guarded$recommendation_status, "review_required")
+  expect_equal(guarded$recommendation_level, "review_required")
+  expect_false(guarded$auto_apply_eligible)
+  expect_match(guarded$recommended_reason, "at least 80%")
+})
+
+test_that("candidate and reference outside the operating domain yield no call", {
+  no_call <- build_recommendation_fields(
     first_significant_cutoff_high = 0.22,
     largest_drop_cutoff = 0.05,
     fallback_cutoff = NA_real_,
@@ -245,18 +273,56 @@ test_that("low-retention reference guidance yields a safer review alternative", 
     retention_fraction_at_recommended = 0.38,
     reference_guided_cutoff = 0.05,
     reference_guided_retention = 0.10,
-    first_significant_high_retention = 0.38
+    first_significant_high_retention = 0.38,
+    reference_retention = 0.10
   )
 
-  expect_equal(guarded$recommended_cutoff, 0.22)
-  expect_equal(guarded$recommended_method, "first_significant_high_retention_guard")
-  expect_equal(
-    guarded$recommendation_source,
-    "reference_guided_overfilter_guard_first_significant_high"
+  expect_true(is.na(no_call$recommended_cutoff))
+  expect_equal(no_call$review_cutoff, 0.05)
+  expect_equal(no_call$recommendation_status, "no_call")
+  expect_equal(no_call$operating_domain_status, "outside_routine_domain")
+  expect_false(no_call$auto_apply_eligible)
+})
+
+test_that("SCdetMito no-call is explicit and wrappers do not substitute it", {
+  seu <- make_threshold_safety_seurat(n_cells = 30L)
+  seu$mitoRatio <- c(rep(0.02, 6), rep(0.12, 24))
+
+  detection <- SCdetMito(
+    seu,
+    sample_col = "sample",
+    species = "human",
+    min_cut = 0.01,
+    max_cut = 0.20,
+    bin_width = 0.01,
+    min_drop_cells = 1,
+    min_drop_fraction = 0,
+    min_cells_after = 1,
+    min_retention_after = 0,
+    loss_test = "threshold_only",
+    plot = FALSE,
+    table_out = FALSE,
+    return_details = TRUE
   )
-  expect_equal(guarded$recommendation_level, "review_required")
-  expect_false(guarded$auto_apply_eligible)
-  expect_match(guarded$recommended_reason, "fewer than 30%")
+
+  expect_equal(detection$sample_cutoff_summary$recommendation_status, "no_call")
+  expect_true(is.na(detection$sample_cutoff_summary$recommended_cutoff))
+  expect_true(is.finite(detection$sample_cutoff_summary$review_cutoff))
+  expect_equal(detection$recommendation_status, "no_call")
+
+  expect_error(
+    SCQCone(
+      seu,
+      min_genes = 0,
+      min_counts = 0,
+      max_mito = "SCdetMito",
+      species = "human",
+      removeDouble = FALSE,
+      plot = FALSE,
+      table_out = FALSE
+    ),
+    "no actionable recommended cutoff"
+  )
 })
 
 test_that("QC wrappers stop on review-only adaptive cutoffs unless explicitly overridden", {

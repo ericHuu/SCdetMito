@@ -271,8 +271,7 @@ build_multisample_cutoff_plan <- function(seurat_obj,
       stop("Failed to assign a detected cutoff to every sample.", call. = FALSE)
     }
     cutoff_column <- if (isTRUE(use_recommended_cutoff) &&
-      "recommended_cutoff" %in% colnames(sample_plan) &&
-      any(is.finite(sample_plan$recommended_cutoff))) {
+      "recommended_cutoff" %in% colnames(sample_plan)) {
         "recommended_cutoff"
       } else {
         "selected_cutoff"
@@ -281,6 +280,17 @@ build_multisample_cutoff_plan <- function(seurat_obj,
       cutoff_column <- "detected_cutoff"
     }
     sample_plan$sample_cutoff <- sample_plan[[cutoff_column]]
+    if (identical(cutoff_column, "recommended_cutoff") &&
+      any(!is.finite(sample_plan$sample_cutoff))) {
+      no_call_samples <- sample_plan$sample_id[!is.finite(sample_plan$sample_cutoff)]
+      stop(
+        "SCdetMito returned no actionable recommended cutoff for: ",
+        paste(no_call_samples, collapse = ", "),
+        ". Inspect review_cutoff values, or set use_recommended_cutoff = FALSE ",
+        "to explicitly use diagnostic selected cutoffs.",
+        call. = FALSE
+      )
+    }
     eligibility_column <- if (identical(cutoff_column, "recommended_cutoff")) {
       "recommended_auto_apply_eligible"
     } else {

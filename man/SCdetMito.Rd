@@ -12,7 +12,7 @@ SCdetMito(
   by = "sample",
   bin_width = 0.01,
   min_cut = 0.01,
-  max_cut = 1,
+  max_cut = 0.5,
   write_tables = NULL,
   write_plots = NULL,
   table_out = FALSE,
@@ -158,8 +158,10 @@ settings when \code{return_details = TRUE}. In \code{sample_cutoff_summary},
 \code{selected_cutoff} is determined by the user-selected
 \code{sample_cutoff_method}, \code{detected_cutoff} is retained as a
 backward-compatible alias of \code{selected_cutoff}, and \code{recommended_cutoff}
-is SCdetMito's reference-aware recommendation reported regardless of the
-selected mode. The
+is SCdetMito's reference-aware recommendation. \code{recommendation_status}
+distinguishes data-supported, prior-guarded, review-required, and no-call
+outcomes; \code{review_cutoff} preserves diagnostic evidence when
+\code{recommended_cutoff} is missing. The
 \code{warning_level} column is human-readable; logical warning columns such as
 \code{has_reference_deviation}, \code{has_low_retention_warning}, and
 \code{has_fallback_warning} are intended for programmatic use. The
@@ -188,12 +190,14 @@ evaluated within each sample, p-values are adjusted per sample, and
 significant intervals are summarized into sample-level cutoff candidates:
 the first significant high-to-low boundary, the largest-drop boundary, the
 selected cutoff under the requested decision mode, and a package-level
-\code{recommended_cutoff} derived by the default reference-aware recommendation
-policy. If the significant boundary nearest a literature prior would retain
-fewer than 30\% of cells and a more permissive significant boundary reaches
-that retention floor, the latter is reported with an explicit retention-
-guard provenance label. Reference-deviation guardrails still determine
-whether it may be applied automatically. When species/tissue or a user reference is supplied,
+\code{data_candidate_cutoff} derived from significant intervals and an actionable
+\code{recommended_cutoff} derived by the default reference-aware operating-domain
+policy. A significant candidate retaining at least 80\% of cells is preferred;
+otherwise a more permissive significant boundary or a guarded literature
+prior can be reported. If neither the data candidate nor the prior satisfies
+that operational floor, \code{recommendation_status = "no_call"} and no actionable
+recommendation is issued. Reference-deviation guardrails still determine
+whether a reported cutoff may be applied automatically. When species/tissue or a user reference is supplied,
 literature-informed reference cutoffs are added for interpretation and
 warning generation. A sample-supported global cutoff is returned for
 multi-sample inputs.

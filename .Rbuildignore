@@ -1,6 +1,7 @@
 ^CITATION\.cff$
 ^\.DS_Store$
 ^\.Rhistory$
+^\.github$
 ^inst/\.DS_Store$
 ^SCdetMito_.*[.]tar[.]gz$
 ^data-raw$

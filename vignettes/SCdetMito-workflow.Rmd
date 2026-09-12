@@ -53,9 +53,11 @@ det$sample_cutoff_summary[, c(
   "reference_cutoff",
   "first_significant_cutoff_high",
   "largest_drop_cutoff",
+  "data_candidate_cutoff",
   "selected_cutoff",
   "detected_cutoff",
   "recommended_cutoff",
+  "recommendation_status",
   "recommendation_level",
   "warning_level"
 )]
@@ -63,12 +65,15 @@ det$sample_cutoff_summary[, c(
 
 `selected_cutoff` is determined by `sample_cutoff_method`. `detected_cutoff`
 is retained as a backward-compatible alias of `selected_cutoff`.
-`recommended_cutoff` is SCdetMito's default reference-aware recommendation and
-is reported even when a strict or exploratory selected mode is requested.
-Fallback-derived, upper-boundary, low-retention, and extreme
-reference-deviation results are marked review-only. Adaptive QC wrappers stop
-before applying them unless the user provides an explicit numeric cutoff or
-sets `review_action = "warn_apply"` after inspection.
+`data_candidate_cutoff` is the reference-aware significant boundary before
+operating-domain safeguards. `recommended_cutoff` is actionable only when
+`recommendation_status` explains the supporting evidence. Candidates retaining
+fewer than 80% of cells are replaced by a safer significant boundary or a
+guarded literature prior when available; otherwise the result is `no_call`.
+Prior/fallback, upper-boundary, and extreme reference-deviation results remain
+review-only. Adaptive QC wrappers stop before applying them unless the user
+provides an explicit numeric cutoff or sets `review_action = "warn_apply"`
+after inspection.
 
 ## Group-aware multi-sample QC
 
@@ -136,6 +141,22 @@ sensitivity <- SCdetMito_sensitivity(
 )
 
 sensitivity$sensitivity_summary
+```
+
+## Secondary cutoff validation
+
+The optional validation step evaluates concordance with detected-feature and
+count summaries. It does not estimate or modify the cutoff.
+
+```{r}
+validation <- validate_mito_cutoff(
+  pbmc,
+  cutoff = det$recommended_cutoff,
+  mito_col = "mitoRatio",
+  sample_col = "sample"
+)
+
+validation
 ```
 
 Benchmark scores are user-adjustable summaries. They do not imply a

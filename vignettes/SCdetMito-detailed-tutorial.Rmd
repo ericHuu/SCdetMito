@@ -89,9 +89,10 @@ det$sample_cutoff_summary
 ```
 
 `selected_cutoff` follows the requested cutoff mode. `detected_cutoff` is a
-backward-compatible alias of `selected_cutoff`. `recommended_cutoff` is always
-reported using the default reference-aware recommendation policy, so users can
-compare the selected cutoff with SCdetMito's recommendation and warning fields.
+backward-compatible alias of `selected_cutoff`. `data_candidate_cutoff` records
+the reference-aware significant boundary before operating-domain safeguards.
+`recommended_cutoff` is actionable only when `recommendation_status` supports
+it and is `NA` for a no-call.
 
 Adaptive cutoffs are eligible for automatic filtering only when they are
 supported by a significant internal boundary, do not hit the upper search
@@ -101,8 +102,9 @@ they require an explicit numeric cutoff or `review_action = "warn_apply"` to be
 applied.
 
 This 80% value is an operational automatic-application floor, not a biological
-quality threshold. A separate 30% recommendation guard is used only to avoid
-reporting an unnecessarily destructive reference-nearest candidate.
+quality threshold. It is also used to avoid reporting an unnecessarily
+destructive reference-nearest candidate; if neither data nor reference evidence
+meets the floor, the package emits a no-call.
 
 ## Apply Groupwise QC
 

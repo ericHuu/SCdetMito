@@ -1,7 +1,7 @@
 # SCdetMito
 # Author: Silu Hu
 # Contact: husilu0902@gmail.com
-# Version: 1.4.4
+# Version: 1.4.5.9000
 # Last updated: 2026-09-12
 
 # Avoid R CMD check notes for ggplot2 non-standard evaluation columns.
@@ -15,7 +15,10 @@ if (getRversion() >= "2.15.1") {
     "fallback_fraction",
     "not_detected_fraction",
     "cutoff_min",
-    "cutoff_max"
+    "cutoff_max",
+    "recommended_cutoff",
+    "recommended_cutoff_median",
+    "recommended_stability_score"
   ))
 }
 
@@ -39,6 +42,9 @@ if (getRversion() >= "2.15.1") {
 #'   Supported values are `"mad_zscore"`, `"empirical_tail"`,
 #'   `"poisson_tail"`, `"zscore"`, and `"threshold_only"`.
 #' @param sample_cutoff_method Sample-level cutoff selection rules to evaluate.
+#' @param stability_tolerance Absolute cutoff distance from the across-grid
+#'   median counted as stable. The default of `0.02` represents two percentage
+#'   points on the mitochondrial fraction scale.
 #' @param write_tables Whether to write the combined sensitivity table.
 #' @param write_plots Whether to write optional stability plots.
 #' @param output_dir Output directory for optional tables and plots.
@@ -56,7 +62,7 @@ SCdetMito_sensitivity <- function(seurat_obj,
                                   by = "sample",
                                   mito_col = NULL,
                                   mitoRatio = "mitoRatio",
-                                  bin_width = c(0.01, 0.02),
+                                  bin_width = c(0.005, 0.01, 0.02),
                                   alpha = c(0.01, 0.05, 0.10),
                                   min_drop_fraction = c(0.005, 0.01, 0.02),
                                   loss_test = c("mad_zscore", "empirical_tail"),
@@ -65,6 +71,7 @@ SCdetMito_sensitivity <- function(seurat_obj,
                                   write_plots = FALSE,
                                   output_dir = ".",
                                   return_details = FALSE,
+                                  stability_tolerance = 0.02,
                                   ...) {
   if (!is.null(sample_col)) {
     by <- sample_col
@@ -75,6 +82,12 @@ SCdetMito_sensitivity <- function(seurat_obj,
   if (is.null(by) || !nzchar(by)) {
     stop("'sample_col' or backward-compatible 'by' must be provided.", call. = FALSE)
   }
+  validate_numeric_scalar(
+    stability_tolerance,
+    "stability_tolerance",
+    lower = .Machine$double.eps,
+    upper = 1
+  )
 
   loss_test <- match.arg(
     loss_test,
@@ -157,7 +170,10 @@ SCdetMito_sensitivity <- function(seurat_obj,
     requested_cols,
     setdiff(colnames(sensitivity_table), requested_cols)
   ), drop = FALSE]
-  sensitivity_summary <- summarize_scdetmito_sensitivity(sensitivity_table)
+  sensitivity_summary <- summarize_scdetmito_sensitivity(
+    sensitivity_table,
+    stability_tolerance = stability_tolerance
+  )
 
   if (isTRUE(write_tables) || isTRUE(write_plots)) {
     output_dir <- ensure_output_dir(output_dir)
@@ -191,7 +207,8 @@ SCdetMito_sensitivity <- function(seurat_obj,
   sensitivity_table
 }
 
-summarize_scdetmito_sensitivity <- function(sensitivity_table) {
+summarize_scdetmito_sensitivity <- function(sensitivity_table,
+                                             stability_tolerance = 0.02) {
   sample_levels <- unique(as.character(sensitivity_table$sample))
   rows <- lapply(sample_levels, function(sample_id) {
     sample_df <- sensitivity_table[as.character(sensitivity_table$sample) == sample_id, , drop = FALSE]
@@ -201,6 +218,49 @@ summarize_scdetmito_sensitivity <- function(sensitivity_table) {
     } else {
       c(NA_real_, NA_real_, NA_real_)
     }
+    recommended_values <- if ("recommended_cutoff" %in% colnames(sample_df)) {
+      as.numeric(sample_df$recommended_cutoff)
+    } else {
+      rep(NA_real_, nrow(sample_df))
+    }
+    finite_recommended <- recommended_values[is.finite(recommended_values)]
+    recommended_quantiles <- if (length(finite_recommended)) {
+      stats::quantile(
+        finite_recommended,
+        probs = c(0.25, 0.5, 0.75),
+        na.rm = TRUE,
+        names = FALSE,
+        type = 8
+      )
+    } else {
+      c(NA_real_, NA_real_, NA_real_)
+    }
+    recommended_stability_score <- if (length(finite_recommended)) {
+      mean(
+        is.finite(recommended_values) &
+          abs(recommended_values - recommended_quantiles[[2]]) <= stability_tolerance
+      )
+    } else {
+      0
+    }
+    recommended_iqr <- recommended_quantiles[[3]] - recommended_quantiles[[1]]
+    data_supported_fraction <- if ("recommendation_status" %in% colnames(sample_df)) {
+      mean(sample_df$recommendation_status == "data_supported", na.rm = TRUE)
+    } else {
+      NA_real_
+    }
+    stability_class <- if (!length(finite_recommended)) {
+      "no_call"
+    } else if (recommended_stability_score >= 0.80 &&
+      is.finite(recommended_iqr) && recommended_iqr <= 0.02 &&
+      is.finite(data_supported_fraction) && data_supported_fraction >= 0.50) {
+      "high"
+    } else if (recommended_stability_score >= 0.60 &&
+      is.finite(recommended_iqr) && recommended_iqr <= 0.05) {
+      "moderate"
+    } else {
+      "low"
+    }
     data.frame(
       sample = sample_id,
       n_parameter_combinations = nrow(sample_df),
@@ -208,6 +268,19 @@ summarize_scdetmito_sensitivity <- function(sensitivity_table) {
       cutoff_iqr = quantiles[[3]] - quantiles[[1]],
       cutoff_min = if (length(finite_cutoffs)) min(finite_cutoffs, na.rm = TRUE) else NA_real_,
       cutoff_max = if (length(finite_cutoffs)) max(finite_cutoffs, na.rm = TRUE) else NA_real_,
+      recommended_cutoff_median = recommended_quantiles[[2]],
+      recommended_cutoff_iqr = recommended_iqr,
+      recommended_cutoff_min = if (length(finite_recommended)) min(finite_recommended) else NA_real_,
+      recommended_cutoff_max = if (length(finite_recommended)) max(finite_recommended) else NA_real_,
+      recommended_stability_score = recommended_stability_score,
+      stability_tolerance = stability_tolerance,
+      cutoff_stability = stability_class,
+      data_supported_fraction = data_supported_fraction,
+      no_call_fraction = if ("recommendation_status" %in% colnames(sample_df)) {
+        mean(sample_df$recommendation_status == "no_call", na.rm = TRUE)
+      } else {
+        NA_real_
+      },
       fallback_fraction = mean(sample_df$fallback_used %in% TRUE, na.rm = TRUE),
       not_detected_fraction = mean(sample_df$cutoff_source == "not_detected", na.rm = TRUE),
       low_confidence_fraction = if ("cutoff_confidence" %in% colnames(sample_df)) {

@@ -35,10 +35,12 @@ composition can shift mitochondrial distributions.
 
 Osorio and Cai (2021; doi:10.1093/bioinformatics/btaa751) remains the direct
 source for the numeric human/mouse species priors. Higher-level QC papers
-such as miQC (Hippen et al., 2021; doi:10.1371/journal.pcbi.1009290) and the
-Luecken and Theis best-practices tutorial (2019;
-doi:10.15252/msb.20188746) support data- and context-aware QC, but do not
-replace the numeric source with validated tissue-specific constants.
+such as miQC (Hippen et al., 2021; doi:10.1371/journal.pcbi.1009290),
+SampleQC (Macnair and Robinson, 2023;
+doi:10.1186/s13059-023-02859-3), and the Luecken and Theis best-practices
+tutorial (2019; doi:10.15252/msb.20188746) support data-, sample-, and
+context-aware QC, but do not replace the numeric source with validated
+tissue-specific constants.
 }
 \examples{
 SCdetMito_reference_cutoffs()

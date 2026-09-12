@@ -1,7 +1,7 @@
 # SCdetMito
 # Author: Silu Hu
 # Contact: husilu0902@gmail.com
-# Version: 1.4.4
+# Version: 1.4.5.9000
 # Last updated: 2026-09-12
 
 #' Literature-informed mitochondrial cutoff references
@@ -21,10 +21,12 @@
 #'
 #' Osorio and Cai (2021; doi:10.1093/bioinformatics/btaa751) remains the direct
 #' source for the numeric human/mouse species priors. Higher-level QC papers
-#' such as miQC (Hippen et al., 2021; doi:10.1371/journal.pcbi.1009290) and the
-#' Luecken and Theis best-practices tutorial (2019;
-#' doi:10.15252/msb.20188746) support data- and context-aware QC, but do not
-#' replace the numeric source with validated tissue-specific constants.
+#' such as miQC (Hippen et al., 2021; doi:10.1371/journal.pcbi.1009290),
+#' SampleQC (Macnair and Robinson, 2023;
+#' doi:10.1186/s13059-023-02859-3), and the Luecken and Theis best-practices
+#' tutorial (2019; doi:10.15252/msb.20188746) support data-, sample-, and
+#' context-aware QC, but do not replace the numeric source with validated
+#' tissue-specific constants.
 #'
 #' @param species Optional species filter. Matching is case-insensitive.
 #' @param tissue Optional tissue filter. Matching is case-insensitive. If a
@@ -99,11 +101,11 @@ SCdetMito_reference_cutoffs <- function(species = NULL, tissue = NULL) {
     ),
     doi_or_url = rep("https://doi.org/10.1093/bioinformatics/btaa751", 6),
     adaptive_policy_support = rep(
-      "Hippen et al. 2021 (miQC); Luecken and Theis 2019 (best-practices tutorial)",
+      "Hippen et al. 2021 (miQC); Macnair and Robinson 2023 (SampleQC); Luecken and Theis 2019 (best-practices tutorial)",
       6
     ),
     adaptive_policy_dois = rep(
-      "https://doi.org/10.1371/journal.pcbi.1009290;https://doi.org/10.15252/msb.20188746",
+      "https://doi.org/10.1371/journal.pcbi.1009290;https://doi.org/10.1186/s13059-023-02859-3;https://doi.org/10.15252/msb.20188746",
       6
     ),
     note = c(

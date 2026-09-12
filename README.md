@@ -1,19 +1,21 @@
 # SCdetMito
 
-SCdetMito is an R package for reference-aware and sample-aware adaptive
-mitochondrial quality control in single-cell RNA-seq data.
+SCdetMito is an R package for reference-aware, sample-aware assessment of
+mitochondrial proportion thresholds in single-cell RNA-seq data.
 
 Development version: `1.4.5.9000`
 Latest frozen release: `1.4.4` (`2026-09-12`)
 
 ## Overview
 
-SCdetMito provides mitochondrial QC decision support for Seurat workflows. It
+SCdetMito provides mitochondrial-threshold decision support for Seurat
+workflows. It
 constructs retained-cell profiles across candidate mitochondrial cutoffs,
 quantifies interval-specific cell loss, reports multiple interpretable cutoff
 candidates, integrates literature-informed reference cutoffs, and supports
 multi-sample QC strategies, benchmarking, sensitivity analysis, cutoff
-confidence reporting, warning fields, and provenance tracking.
+confidence reporting, explicit no-call states, secondary QC concordance checks,
+warning fields, and provenance tracking.
 
 The package does not define a universal biological mitochondrial cutoff.
 Detected cutoffs should be interpreted with retained-cell profiles,
@@ -85,6 +87,7 @@ qc_groupwise <- SCQCmulti(
   min_genes = 0,
   min_counts = 0,
   removeDouble = FALSE,
+  review_action = "warn_apply",
   write_plots = FALSE,
   write_tables = FALSE
 )
@@ -94,7 +97,7 @@ The built-in demo is intended for examples, software tests, and sample-aware or
 group-aware workflow checks. It is not intended for biological inference.
 When adaptive mitochondrial filtering is requested, `SCQCone()` and
 `SCQCmulti()` use `recommended_cutoff` by default and record the applied cutoff
-source in object provenance. A fallback-derived cutoff, an upper search-boundary
+source in object provenance. A prior-guarded or fallback-derived cutoff, an upper search-boundary
 hit, retention below 80%, or a cutoff at least three times an available
 literature prior is marked review-only and is not applied automatically. After
 inspection, users can provide an explicit numeric `max_mito` or deliberately
@@ -102,7 +105,11 @@ set `review_action = "warn_apply"`. Set `use_recommended_cutoff = FALSE` to
 evaluate or apply the user-selected `selected_cutoff` under the same safety
 policy.
 
-If no significant boundary is detected, the default fallback reports an
+If neither a data candidate nor an available literature prior retains at least
+80% of cells, SCdetMito reports `recommendation_status = "no_call"` and leaves
+`recommended_cutoff` missing. The diagnostic candidate is preserved in
+`review_cutoff`; QC wrappers will not silently substitute it. If no significant
+boundary is detected, the default fallback reports an
 available species/tissue literature prior; without a matching prior it reports
 the requested data quantile. Both are decision-support values requiring review,
 not automatically valid biological thresholds.
@@ -122,9 +129,12 @@ SCdetMito separates several cutoff concepts that can differ in real datasets:
 | `reference_cutoff` | Literature-informed species/tissue prior for interpretation |
 | `first_significant_cutoff_high` | Most permissive significant retention-loss boundary when scanning from high to low cutoff |
 | `largest_drop_cutoff` | Significant cutoff with the largest interval-specific cell loss |
+| `data_candidate_cutoff` | Reference-aware significant boundary before operating-domain guards |
 | `selected_cutoff` | Cutoff selected under `sample_cutoff_method` |
 | `detected_cutoff` | Backward-compatible alias of `selected_cutoff` |
 | `recommended_cutoff` | SCdetMito recommendation from the default reference-aware policy |
+| `recommendation_status` | Evidence state: `data_supported`, `prior_guarded`, `reference_supported`, `review_required`, or `no_call` |
+| `review_cutoff` | Diagnostic candidate retained when no actionable recommendation is issued |
 | `cutoff_applied` | Actual cutoff used for filtering in `SCQCone()` or `SCQCmulti()` |
 | `sample_cutoff_summary` | Per-sample cutoff evidence and recommendation table |
 | `group_cutoff_summary` | Group-level aggregation table for groupwise multi-sample QC |
@@ -137,23 +147,26 @@ reference and reports this explicitly.
 
 The numeric human/mouse priors remain traceable to Osorio and Cai (2021), the
 paper that directly estimated cross-tissue reference values. miQC (Hippen et
-al., 2021) and the Luecken and Theis (2019) best-practices tutorial are recorded
-separately as support for adaptive, context-aware QC; they are not presented as
-sources of tissue-specific numeric constants. Use
+al., 2021), SampleQC (Macnair and Robinson, 2023), and the Luecken and Theis
+(2019) best-practices tutorial are recorded separately as support for adaptive,
+multi-sample, context-aware QC; they are not presented as sources of
+tissue-specific numeric constants. Use
 `SCdetMito_reference_cutoffs()` to inspect `evidence_role`, the direct numeric
 source, and the adaptive-policy sources.
 
-When the significant boundary nearest a prior would retain fewer than 30% of
-cells, the recommendation policy reports a more permissive significant
-high-to-low boundary that reaches the retention floor when one exists. A large
-departure from the prior remains review-only, so this guard improves the
-decision aid without converting a high cutoff into an automatic rule.
+The default recommendation policy formalizes a routine operating domain for
+modern scRNA-seq datasets. A data-derived candidate retaining at least 80% of
+cells is reported as `data_supported`. If the nearest significant candidate is
+too stringent but a more permissive significant boundary reaches that floor,
+the latter is preferred. If only the literature prior reaches the floor, it is
+reported as `prior_guarded` and remains review-only. If neither does,
+SCdetMito emits `no_call`. The 80% value is an operational safety rule, not a
+universal biological threshold or a claim that every study must retain 80% of
+cells.
 
-The 30% recommendation guard and the 80% automatic-application floor serve
-different purposes. The first prevents the reference-nearest candidate from
-becoming needlessly destructive; the second keeps any candidate removing more
-than 20% of cells in review-only mode. Both are operational safety guardrails,
-not universal biological thresholds.
+The routine search range is 1% to 50% mitochondrial content by default. Users
+can explicitly expand `max_cut` up to 1 for unusual tissues or method audits;
+upper-boundary hits remain review-only.
 
 Even when users select a strict or exploratory cutoff mode, SCdetMito reports a
 `recommended_cutoff` using the reference-aware policy. The user-selected cutoff
@@ -174,7 +187,9 @@ det <- SCdetMito(
 det$sample_cutoff_summary[, c(
   "sample",
   "selected_cutoff",
+  "data_candidate_cutoff",
   "recommended_cutoff",
+  "recommendation_status",
   "reference_cutoff",
   "first_significant_cutoff_high",
   "largest_drop_cutoff",
@@ -240,6 +255,7 @@ precomputed `mito_col` or raw counts retaining mitochondrial genes.
 | `SCQCmulti()` | Apply sample-aware multi-sample QC |
 | `SCQCbenchmark()` | Compare fixed and adaptive QC strategies |
 | `SCdetMito_sensitivity()` | Evaluate cutoff stability across parameter settings |
+| `validate_mito_cutoff()` | Check an existing cutoff against feature/count QC concordance without changing it |
 | `SCdetMito_methods()` | List available detection and cutoff-selection methods |
 
 Optional online public-data loaders remain available as user-run utilities, but
@@ -291,6 +307,27 @@ sensitivity <- SCdetMito_sensitivity(
 )
 
 sensitivity$sensitivity_summary
+```
+
+The summary reports a recommendation stability score, cutoff IQR, the fraction
+of parameter settings producing data-supported results, and the no-call
+fraction. Stability describes agreement across the declared parameter grid; it
+does not prove a biological ground truth.
+
+After selecting a cutoff, optional secondary validation can test whether cells
+above it also have reduced feature and count complexity. This function never
+selects or alters the threshold:
+
+```r
+validation <- validate_mito_cutoff(
+  pbmc,
+  cutoff = det$recommended_cutoff,
+  mito_col = "mitoRatio",
+  sample_col = "sample",
+  min_cells_per_group = 20
+)
+
+validation
 ```
 
 ## Optional Public Data Workflows
