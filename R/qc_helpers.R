@@ -185,7 +185,7 @@ enforce_cutoff_review_policy <- function(auto_apply_eligible,
 
   message_text <- paste0(
     "The ", context, " is marked review-only (for example because it is fallback-derived, ",
-    "hits the upper search boundary, retains <80% of cells, or is >=3x an available literature prior). ",
+    "hits the upper search boundary, retains <80% of cells, or is >=2x an available literature prior). ",
     "Inspect the SCdetMito evidence and provide an explicit numeric max_mito, or set ",
     "review_action = 'warn_apply' to apply it deliberately."
   )

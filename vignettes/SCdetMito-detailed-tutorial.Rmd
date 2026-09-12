@@ -96,7 +96,7 @@ it and is `NA` for a no-call.
 
 Adaptive cutoffs are eligible for automatic filtering only when they are
 supported by a significant internal boundary, do not hit the upper search
-boundary, retain at least 80% of cells, and are less than three times an
+boundary, retain at least 80% of cells, and are less than twice an
 available literature prior. Review-only results remain visible for diagnosis;
 they require an explicit numeric cutoff or `review_action = "warn_apply"` to be
 applied.

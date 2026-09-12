@@ -32,7 +32,8 @@
 #' prior can be reported. If neither the data candidate nor the prior satisfies
 #' that operational floor, `recommendation_status = "no_call"` and no actionable
 #' recommendation is issued. Reference-deviation guardrails still determine
-#' whether a reported cutoff may be applied automatically. When species/tissue or a user reference is supplied,
+#' whether a reported cutoff may be applied automatically; a cutoff at least
+#' twice an available reference is review-only. When species/tissue or a user reference is supplied,
 #' literature-informed reference cutoffs are added for interpretation and
 #' warning generation. A sample-supported global cutoff is returned for
 #' multi-sample inputs.
@@ -971,7 +972,8 @@ SCdetMito <- function(seurat_obj,
     reference_warning = reference_warning,
     auto_apply_min_retention = safety_defaults$min_retention_for_auto_apply,
     cautious_reference_ratio = safety_defaults$cautious_reference_ratio,
-    auto_apply_max_reference_ratio = safety_defaults$max_reference_ratio_for_auto_apply,
+    auto_apply_max_reference_ratio = safety_defaults$cautious_reference_ratio,
+    extreme_reference_ratio = safety_defaults$max_reference_ratio_for_auto_apply,
     upper_search_boundary = upper_search_boundary,
     auto_add_mito = auto_add_mito,
     mito_features_provided = !is.null(mito_features),

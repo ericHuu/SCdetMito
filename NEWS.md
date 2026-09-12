@@ -13,6 +13,9 @@
   are preferred when available, literature priors can be retained for guarded
   review, and evidence outside the domain now produces a no-call rather than an
   extreme actionable threshold.
+- Made recommendations at least twice an available literature reference
+  review-only, while retaining a separate three-times-reference warning for
+  more extreme deviations.
 - Reduced the routine default search ceiling from 100% to 50%; wider searches
   remain available through explicit `max_cut` settings.
 - Expanded `SCdetMito_sensitivity()` with recommendation stability scores,

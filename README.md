@@ -98,7 +98,7 @@ group-aware workflow checks. It is not intended for biological inference.
 When adaptive mitochondrial filtering is requested, `SCQCone()` and
 `SCQCmulti()` use `recommended_cutoff` by default and record the applied cutoff
 source in object provenance. A prior-guarded or fallback-derived cutoff, an upper search-boundary
-hit, retention below 80%, or a cutoff at least three times an available
+hit, retention below 80%, or a cutoff at least twice an available
 literature prior is marked review-only and is not applied automatically. After
 inspection, users can provide an explicit numeric `max_mito` or deliberately
 set `review_action = "warn_apply"`. Set `use_recommended_cutoff = FALSE` to

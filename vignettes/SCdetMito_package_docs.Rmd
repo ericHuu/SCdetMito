@@ -82,7 +82,7 @@ actionable output of the operating-domain policy; it is `NA` when
 `recommendation_status = "no_call"`.
 
 Fallback-derived results, upper search-boundary hits, cutoffs retaining less
-than 80% of cells, and cutoffs at least three times an available literature
+than 80% of cells, and cutoffs at least twice an available literature
 prior are marked review-only. `SCQCone()` and `SCQCmulti()` stop before applying
 such results unless the user supplies an explicit numeric cutoff or sets
 `review_action = "warn_apply"` after inspection.

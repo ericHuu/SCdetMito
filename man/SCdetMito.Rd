@@ -197,7 +197,8 @@ otherwise a more permissive significant boundary or a guarded literature
 prior can be reported. If neither the data candidate nor the prior satisfies
 that operational floor, \code{recommendation_status = "no_call"} and no actionable
 recommendation is issued. Reference-deviation guardrails still determine
-whether a reported cutoff may be applied automatically. When species/tissue or a user reference is supplied,
+whether a reported cutoff may be applied automatically; a cutoff at least
+twice an available reference is review-only. When species/tissue or a user reference is supplied,
 literature-informed reference cutoffs are added for interpretation and
 warning generation. A sample-supported global cutoff is returned for
 multi-sample inputs.
