@@ -3,8 +3,8 @@
 SCdetMito is an R package for reference-aware and sample-aware adaptive
 mitochondrial quality control in single-cell RNA-seq data.
 
-Version: `1.4.3`  
-Release date: `2026-05-23`
+Version: `1.4.4`
+Release date: `2026-09-12`
 
 ## Overview
 
@@ -28,14 +28,14 @@ maintained outside the core package.
 
 ```r
 install.packages("remotes")
-remotes::install_github("ericHuu/SCdetMito@v1.4.3", build_vignettes = FALSE)
+remotes::install_github("ericHuu/SCdetMito@v1.4.4", build_vignettes = FALSE)
 ```
 
 For local source installation:
 
 ```r
 install.packages(
-  "/path/to/SCdetMito_1.4.3.tar.gz",
+  "/path/to/SCdetMito_1.4.4.tar.gz",
   repos = NULL,
   type = "source"
 )
@@ -93,9 +93,19 @@ qc_groupwise <- SCQCmulti(
 The built-in demo is intended for examples, software tests, and sample-aware or
 group-aware workflow checks. It is not intended for biological inference.
 When adaptive mitochondrial filtering is requested, `SCQCone()` and
-`SCQCmulti()` apply `recommended_cutoff` by default and record the applied
-cutoff source in object provenance. Set `use_recommended_cutoff = FALSE` to
-apply the user-selected `selected_cutoff` instead.
+`SCQCmulti()` use `recommended_cutoff` by default and record the applied cutoff
+source in object provenance. A fallback-derived cutoff, an upper search-boundary
+hit, retention below 30%, or a cutoff at least three times an available
+literature prior is marked review-only and is not applied automatically. After
+inspection, users can provide an explicit numeric `max_mito` or deliberately
+set `review_action = "warn_apply"`. Set `use_recommended_cutoff = FALSE` to
+evaluate or apply the user-selected `selected_cutoff` under the same safety
+policy.
+
+If no significant boundary is detected, the default fallback reports an
+available species/tissue literature prior; without a matching prior it reports
+the requested data quantile. Both are decision-support values requiring review,
+not automatically valid biological thresholds.
 
 `SCQCmulti()` stores both sample-level cutoff evidence and strategy-level
 applied cutoffs. The field `cutoff_applied` records the actual filtering
@@ -124,6 +134,20 @@ data-driven cutoff is far above common literature expectations or where a
 largest-drop cutoff is very stringent and retains few cells. When no exact
 tissue-specific value is available, SCdetMito falls back to a species-level
 reference and reports this explicitly.
+
+The numeric human/mouse priors remain traceable to Osorio and Cai (2021), the
+paper that directly estimated cross-tissue reference values. miQC (Hippen et
+al., 2021) and the Luecken and Theis (2019) best-practices tutorial are recorded
+separately as support for adaptive, context-aware QC; they are not presented as
+sources of tissue-specific numeric constants. Use
+`SCdetMito_reference_cutoffs()` to inspect `evidence_role`, the direct numeric
+source, and the adaptive-policy sources.
+
+When the significant boundary nearest a prior would retain fewer than 30% of
+cells, the recommendation policy reports a more permissive significant
+high-to-low boundary that reaches the retention floor when one exists. A large
+departure from the prior remains review-only, so this guard improves the
+decision aid without converting a high cutoff into an automatic rule.
 
 Even when users select a strict or exploratory cutoff mode, SCdetMito reports a
 `recommended_cutoff` using the reference-aware policy. The user-selected cutoff

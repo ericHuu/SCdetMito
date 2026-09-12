@@ -1,7 +1,7 @@
 Package: SCdetMito
 Title: Reference-Aware Adaptive Mitochondrial Quality Control for
         Single-Cell RNA-Seq
-Version: 1.4.3
+Version: 1.4.4
 Authors@R: 
     person(
         given = "Silu",
@@ -9,8 +9,8 @@ Authors@R:
         role = c("aut", "cre"),
         email = "husilu0902@gmail.com"
     )
-Description: SCdetMito provides reference-aware and sample-aware adaptive
-    mitochondrial quality control for single-cell RNA-seq data. It constructs
+Description: Provides reference-aware and sample-aware adaptive mitochondrial
+    quality control for single-cell RNA-seq data. The framework constructs
     retained-cell profiles across candidate mitochondrial cutoffs, quantifies
     interval-specific cell loss, estimates multiple interpretable cutoff
     candidates, integrates literature-informed reference cutoffs, and supports
@@ -26,11 +26,8 @@ URL: https://github.com/ericHuu/SCdetMito
 BugReports: https://github.com/ericHuu/SCdetMito/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.2
-Date: 2026-05-23
+RoxygenNote: 7.3.3
+Date: 2026-09-12
 NeedsCompilation: no
 VignetteBuilder: knitr
 Config/testthat/edition: 3
-Packaged: 2026-05-24 03:28:18 UTC; husilu
-Author: Silu Hu [aut, cre]
-Maintainer: Silu Hu <husilu0902@gmail.com>

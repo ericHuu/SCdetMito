@@ -1,8 +1,8 @@
 # SCdetMito
 # Author: Silu Hu
 # Contact: husilu0902@gmail.com
-# Version: 1.4.3
-# Last updated: 2026-05-23
+# Version: 1.4.4
+# Last updated: 2026-09-12
 
 # Optional public data loaders for SCdetMito examples. Online datasets are
 # downloaded only when users explicitly call these helpers.

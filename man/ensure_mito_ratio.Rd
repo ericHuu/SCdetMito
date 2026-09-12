@@ -13,6 +13,7 @@ ensure_mito_ratio(
   mito_pattern = NULL,
   overwrite = FALSE,
   convert_percent = TRUE,
+  mito_scale = c("auto", "fraction", "percent"),
   verbose = TRUE
 )
 }
@@ -39,6 +40,11 @@ Defaults to \code{FALSE}.}
 
 \item{convert_percent}{Whether percent-scale existing values should be
 converted to fractions. Defaults to \code{TRUE}.}
+
+\item{mito_scale}{Scale of an existing mitochondrial metadata column.
+\code{"fraction"} requires values in 0--1, \code{"percent"} requires values in
+0--100 and converts them to fractions, and \code{"auto"} retains the legacy
+inference while rejecting strongly ambiguous mixed-scale columns.}
 
 \item{verbose}{Whether to emit status messages. Defaults to \code{TRUE}.}
 }

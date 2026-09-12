@@ -1,8 +1,8 @@
 # SCdetMito
 # Author: Silu Hu
 # Contact: husilu0902@gmail.com
-# Version: 1.4.3
-# Last updated: 2026-05-23
+# Version: 1.4.4
+# Last updated: 2026-09-12
 
 # Internal helpers for QC workflows.
 
@@ -45,6 +45,14 @@ scdetmito_palette <- function(n = 8) {
   grDevices::colorRampPalette(base)(n)
 }
 
+cutoff_safety_defaults <- function() {
+  list(
+    min_retention_for_auto_apply = 0.30,
+    cautious_reference_ratio = 2,
+    max_reference_ratio_for_auto_apply = 3
+  )
+}
+
 validate_numeric_scalar <- function(value,
                                     name,
                                     lower = -Inf,
@@ -68,7 +76,9 @@ validate_numeric_scalar <- function(value,
 
 normalize_mito_cutoff_value <- function(value,
                                         name = "max_mito",
-                                        allow_scdet = FALSE) {
+                                        allow_scdet = FALSE,
+                                        scale = c("auto", "fraction", "percent")) {
+  scale <- match.arg(scale)
   if (allow_scdet && identical(value, "SCdetMito")) {
     return(value)
   }
@@ -86,12 +96,26 @@ normalize_mito_cutoff_value <- function(value,
     )
   }
 
-  if (numeric_value > 1 && numeric_value <= 100) {
+  if (identical(scale, "percent")) {
+    if (numeric_value < 0 || numeric_value > 100) {
+      stop("'", name, "' must be between 0 and 100 when scale = 'percent'.", call. = FALSE)
+    }
+    numeric_value <- numeric_value / 100
+  } else if (identical(scale, "fraction")) {
+    if (numeric_value < 0 || numeric_value > 1) {
+      stop("'", name, "' must be between 0 and 1 when scale = 'fraction'.", call. = FALSE)
+    }
+  } else if (numeric_value > 1 && numeric_value <= 100) {
     warning(
       "'", name, "' appears to be a percentage and was converted to a fraction.",
       call. = FALSE
     )
     numeric_value <- numeric_value / 100
+  } else if (identical(numeric_value, 1)) {
+    warning(
+      "'", name, "' = 1 was interpreted as a fraction (100%). Use 0.01 or scale = 'percent' for 1%.",
+      call. = FALSE
+    )
   }
 
   if (numeric_value < 0 || numeric_value > 1) {
@@ -110,16 +134,18 @@ validate_qc_bounds <- function(min_genes,
                                min_counts,
                                max_counts,
                                min_mito,
-                               max_mito = NULL) {
+                               max_mito = NULL,
+                               mito_cutoff_scale = c("auto", "fraction", "percent")) {
+  mito_cutoff_scale <- match.arg(mito_cutoff_scale)
   min_genes <- validate_numeric_scalar(min_genes, "min_genes", lower = 0)
   max_genes <- validate_numeric_scalar(max_genes, "max_genes", lower = 0, allow_infinite = TRUE)
   min_counts <- validate_numeric_scalar(min_counts, "min_counts", lower = 0)
   max_counts <- validate_numeric_scalar(max_counts, "max_counts", lower = 0, allow_infinite = TRUE)
-  min_mito <- normalize_mito_cutoff_value(min_mito, "min_mito")
+  min_mito <- normalize_mito_cutoff_value(min_mito, "min_mito", scale = mito_cutoff_scale)
   max_mito <- if (is.null(max_mito)) {
     NULL
   } else {
-    normalize_mito_cutoff_value(max_mito, "max_mito")
+    normalize_mito_cutoff_value(max_mito, "max_mito", scale = mito_cutoff_scale)
   }
 
   if (min_genes > max_genes) {
@@ -140,6 +166,29 @@ validate_qc_bounds <- function(min_genes,
     min_mito = min_mito,
     max_mito = max_mito
   )
+}
+
+enforce_cutoff_review_policy <- function(auto_apply_eligible,
+                                         review_action = c("stop", "warn_apply"),
+                                         context = "adaptive mitochondrial cutoff") {
+  review_action <- match.arg(review_action)
+  eligible <- as.logical(auto_apply_eligible)
+  safe_to_apply <- length(eligible) > 0L && all(!is.na(eligible) & eligible)
+  if (safe_to_apply) {
+    return(invisible(TRUE))
+  }
+
+  message_text <- paste0(
+    "The ", context, " is marked review-only (for example because it is fallback-derived, ",
+    "hits the upper search boundary, retains <30% of cells, or is >=3x an available literature prior). ",
+    "Inspect the SCdetMito evidence and provide an explicit numeric max_mito, or set ",
+    "review_action = 'warn_apply' to apply it deliberately."
+  )
+  if (identical(review_action, "stop")) {
+    stop(message_text, call. = FALSE)
+  }
+  warning(message_text, call. = FALSE)
+  invisible(FALSE)
 }
 
 build_qc_summary <- function(seurat_obj,
@@ -178,7 +227,8 @@ filter_cells_by_metrics <- function(seurat_obj,
     min_counts = min_counts,
     max_counts = max_counts,
     min_mito = min_mito,
-    max_mito = max_mito
+    max_mito = max_mito,
+    mito_cutoff_scale = "fraction"
   )
   min_genes <- qc_bounds$min_genes
   max_genes <- qc_bounds$max_genes
@@ -201,6 +251,9 @@ filter_cells_by_metrics <- function(seurat_obj,
 
   if (anyNA(mito_upper)) {
     stop("Cell-level mitochondrial cutoffs could not be resolved for all cells.", call. = FALSE)
+  }
+  if (any(!is.finite(mito_upper)) || any(mito_upper < 0 | mito_upper > 1)) {
+    stop("Cell-level mitochondrial cutoffs must be finite fractions between 0 and 1.", call. = FALSE)
   }
 
   keep <- metadata[[nFeature_RNA]] >= min_genes &
@@ -357,7 +410,8 @@ select_detected_cutoff <- function(group_df,
                                      "median_significant",
                                      "min_significant"
                                    ),
-                                   snap_fun = identity) {
+                                   snap_fun = identity,
+                                   reference_cutoff = NA_real_) {
   method <- match.arg(method)
   if (!nrow(group_df)) {
     return(list(
@@ -395,7 +449,16 @@ select_detected_cutoff <- function(group_df,
       ranked_df$cutoff[[1]]
     },
     first_significant_high = max(significant_df$cutoff, na.rm = TRUE),
-    reference_guided = max(significant_df$cutoff, na.rm = TRUE),
+    reference_guided = if (is.finite(reference_cutoff)) {
+      ranked_reference <- significant_df[
+        order(abs(significant_df$cutoff - reference_cutoff), -significant_df$cutoff),
+        ,
+        drop = FALSE
+      ]
+      ranked_reference$cutoff[[1]]
+    } else {
+      max(significant_df$cutoff, na.rm = TRUE)
+    },
     first_significant_low = min(significant_df$cutoff, na.rm = TRUE),
     max_significant = max(significant_df$cutoff, na.rm = TRUE),
     median_significant = {
@@ -419,6 +482,7 @@ build_reference_warning <- function(selected_cutoff,
                                     first_significant_cutoff_high,
                                     largest_drop_cutoff,
                                     reference_warning = TRUE) {
+  safety <- cutoff_safety_defaults()
   flags <- character()
   messages <- character()
   if (isTRUE(fallback_used)) {
@@ -428,7 +492,8 @@ build_reference_warning <- function(selected_cutoff,
       "The selected cutoff is fallback-derived because no significant interval-specific cell-loss boundary was detected."
     )
   }
-  if (is.finite(retention_fraction_at_cutoff) && retention_fraction_at_cutoff < 0.30) {
+  if (is.finite(retention_fraction_at_cutoff) &&
+    retention_fraction_at_cutoff < safety$min_retention_for_auto_apply) {
     flags <- c(flags, "low_retention_warning")
     messages <- c(
       messages,
@@ -440,13 +505,13 @@ build_reference_warning <- function(selected_cutoff,
     is.finite(selected_cutoff) &&
     reference_cutoff > 0) {
       ratio <- selected_cutoff / reference_cutoff
-      if (ratio >= 3) {
+      if (ratio >= safety$max_reference_ratio_for_auto_apply) {
         flags <- c(flags, "high_reference_deviation")
         messages <- c(
           messages,
           "The selected cutoff is at least three times the literature-informed reference. Inspect mitochondrial distribution, retained-cell profiles, sample handling, tissue dissociation, post-mortem interval, disease state, and cell-type composition before applying this cutoff."
         )
-      } else if (ratio >= 2) {
+      } else if (ratio >= safety$cautious_reference_ratio) {
         flags <- c(flags, "moderate_reference_deviation")
         messages <- c(
           messages,
@@ -462,7 +527,7 @@ build_reference_warning <- function(selected_cutoff,
     selected_cutoff == largest_drop_cutoff &&
     first_significant_cutoff_high > selected_cutoff &&
     is.finite(retention_fraction_at_cutoff) &&
-    retention_fraction_at_cutoff < 0.30) {
+    retention_fraction_at_cutoff < safety$min_retention_for_auto_apply) {
       flags <- c(flags, "low_retention_warning")
       messages <- c(
         messages,
@@ -493,15 +558,48 @@ build_recommendation_fields <- function(first_significant_cutoff_high,
                                         fallback_quantile,
                                         reference_cutoff,
                                         retention_fraction_at_recommended,
+                                        reference_guided_cutoff = NA_real_,
+                                        reference_guided_retention = NA_real_,
+                                        first_significant_high_retention = NA_real_,
+                                        upper_boundary_hit = FALSE,
                                         reference_warning = TRUE) {
-  if (is.finite(first_significant_cutoff_high)) {
+  safety <- cutoff_safety_defaults()
+  use_retention_guard <- is.finite(reference_guided_cutoff) &&
+    is.finite(reference_guided_retention) &&
+    reference_guided_retention < safety$min_retention_for_auto_apply &&
+    is.finite(first_significant_cutoff_high) &&
+    first_significant_cutoff_high > reference_guided_cutoff &&
+    is.finite(first_significant_high_retention) &&
+    first_significant_high_retention >= safety$min_retention_for_auto_apply
+
+  if (use_retention_guard) {
     recommended_cutoff <- first_significant_cutoff_high
-    recommended_method <- "reference_guided"
-    recommendation_source <- "reference_guided_first_significant_high"
+    recommended_method <- "first_significant_high_retention_guard"
+    recommendation_source <- "reference_guided_overfilter_guard_first_significant_high"
     recommended_reason <- paste(
-      "First significant high-to-low retention-loss boundary is available",
-      "and prioritized by the reference-aware recommendation policy."
+      "The significant boundary nearest the literature prior would retain fewer than 30% of cells;",
+      "the first significant high-to-low boundary with adequate retention is reported instead."
     )
+  } else if (is.finite(reference_guided_cutoff)) {
+    recommended_cutoff <- reference_guided_cutoff
+    recommended_method <- "reference_guided"
+    recommendation_source <- if (is.finite(reference_cutoff)) {
+      "reference_guided_nearest_significant_boundary"
+    } else {
+      "reference_unavailable_first_significant_high"
+    }
+    recommended_reason <- paste(
+      if (is.finite(reference_cutoff)) {
+        "The significant retention-loss boundary nearest the literature prior is reported."
+      } else {
+        "No literature prior was available; the first significant high-to-low boundary is reported."
+      }
+    )
+  } else if (is.finite(first_significant_cutoff_high)) {
+    recommended_cutoff <- first_significant_cutoff_high
+    recommended_method <- "first_significant_high"
+    recommendation_source <- "first_significant_high"
+    recommended_reason <- "The first significant high-to-low retention-loss boundary is reported."
   } else if (is.finite(largest_drop_cutoff)) {
     recommended_cutoff <- largest_drop_cutoff
     recommended_method <- "largest_drop"
@@ -515,6 +613,12 @@ build_recommendation_fields <- function(first_significant_cutoff_high,
     recommended_method <- "fallback"
     recommendation_source <- if (identical(fallback_method, "quantile")) {
       paste0("quantile_fallback_", format(fallback_quantile, nsmall = 2, trim = TRUE))
+    } else if (identical(fallback_method, "reference")) {
+      "literature_prior_fallback"
+    } else if (identical(fallback_method, "reference_then_quantile")) {
+      if (is.finite(reference_cutoff)) "literature_prior_fallback" else paste0(
+        "quantile_fallback_", format(fallback_quantile, nsmall = 2, trim = TRUE)
+      )
     } else if (identical(fallback_method, "max_cut")) {
       "max_cut_fallback"
     } else {
@@ -540,31 +644,44 @@ build_recommendation_fields <- function(first_significant_cutoff_high,
     "standard"
   }
 
-  if (isTRUE(reference_warning) &&
-    is.finite(reference_cutoff) &&
+  if (is.finite(reference_cutoff) &&
     is.finite(recommended_cutoff) &&
     reference_cutoff > 0) {
       reference_ratio <- recommended_cutoff / reference_cutoff
-      if (reference_ratio >= 3) {
+      if (reference_ratio >= safety$max_reference_ratio_for_auto_apply) {
         recommendation_level <- "review_required"
-        warnings <- c(
-          warnings,
-          "Recommended cutoff is at least three times the literature-informed reference; inspect sample quality, dissociation, tissue handling, disease state, and cell composition before applying it."
-        )
-      } else if (reference_ratio >= 2 && !identical(recommendation_level, "review_required")) {
+        if (isTRUE(reference_warning)) {
+          warnings <- c(
+            warnings,
+            "Recommended cutoff is at least three times the literature-informed reference; inspect sample quality, dissociation, tissue handling, disease state, and cell composition before applying it."
+          )
+        }
+      } else if (reference_ratio >= safety$cautious_reference_ratio &&
+        !identical(recommendation_level, "review_required")) {
         recommendation_level <- "cautious"
-        warnings <- c(
-          warnings,
-          "Recommended cutoff is substantially higher than the literature-informed reference; inspect retained-cell and interval-loss profiles before applying it."
-        )
+        if (isTRUE(reference_warning)) {
+          warnings <- c(
+            warnings,
+            "Recommended cutoff is substantially higher than the literature-informed reference; inspect retained-cell and interval-loss profiles before applying it."
+          )
+        }
       }
   }
 
-  if (is.finite(retention_fraction_at_recommended) && retention_fraction_at_recommended < 0.30) {
+  if (is.finite(retention_fraction_at_recommended) &&
+    retention_fraction_at_recommended < safety$min_retention_for_auto_apply) {
     recommendation_level <- "review_required"
     warnings <- c(
       warnings,
       "Recommended cutoff retains a small fraction of cells and may over-filter the sample."
+    )
+  }
+
+  if (isTRUE(upper_boundary_hit)) {
+    recommendation_level <- "review_required"
+    warnings <- c(
+      warnings,
+      "Recommended cutoff equals the upper search boundary; the data did not identify an internal upper decision point."
     )
   }
 
@@ -580,6 +697,11 @@ build_recommendation_fields <- function(first_significant_cutoff_high,
     recommended_method = recommended_method,
     recommended_reason = recommended_reason,
     recommendation_level = recommendation_level,
+    auto_apply_eligible = is.finite(recommended_cutoff) &&
+      !isTRUE(fallback_used) &&
+      !isTRUE(upper_boundary_hit) &&
+      !identical(recommendation_level, "review_required"),
+    upper_boundary_hit = isTRUE(upper_boundary_hit),
     recommendation_warning = if (length(warnings)) paste(unique(warnings), collapse = " ") else NA_character_,
     recommendation_source = recommendation_source
   )
@@ -724,6 +846,10 @@ build_qc_provenance <- function(function_name,
     recommended_cutoff = resolved_final_recommended,
     recommended_method = first_value("recommended_method", NA_character_),
     recommendation_level = first_value("recommendation_level", NA_character_),
+    auto_apply_eligible = plan_value(
+      "auto_apply_eligible",
+      first_value("applied_auto_apply_eligible", first_value("recommended_auto_apply_eligible", NA))
+    ),
     recommendation_warning = first_value("recommendation_warning", NA_character_),
     recommendation_source = first_value("recommendation_source", NA_character_),
     reference_cutoff = first_value("reference_cutoff", NA_real_),

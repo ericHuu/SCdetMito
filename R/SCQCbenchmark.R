@@ -1,8 +1,8 @@
 # SCdetMito
 # Author: Silu Hu
 # Contact: husilu0902@gmail.com
-# Version: 1.4.3
-# Last updated: 2026-05-23
+# Version: 1.4.4
+# Last updated: 2026-09-12
 
 if (getRversion() >= "2.15.1") {
   utils::globalVariables(c(
@@ -87,6 +87,11 @@ if (getRversion() >= "2.15.1") {
 #' @param mito_assay Optional assay used for mitochondrial ratio calculation.
 #' @param recompute_mito Whether to recompute `mito_col` even when it already
 #'   exists. Defaults to `FALSE`.
+#' @param mito_scale Scale of an existing mitochondrial metadata column:
+#'   `"auto"`, `"fraction"`, or `"percent"`.
+#' @param mito_cutoff_scale Scale for the user-supplied numeric `min_mito`:
+#'   `"auto"`, `"fraction"`, or `"percent"`. Built-in strategy cutoffs are
+#'   always stored as fractions.
 #'
 #' @return Invisibly returns a list with raw benchmark tables, normalized score
 #'   tables, weights used, strategies recommended under each scoring profile,
@@ -134,6 +139,8 @@ SCQCbenchmark <- function(seurat_obj,
                           mito_pattern = NULL,
                           mito_assay = NULL,
                           recompute_mito = FALSE,
+                          mito_scale = c("auto", "fraction", "percent"),
+                          mito_cutoff_scale = c("auto", "fraction", "percent"),
                           write_plots = NULL,
                           plot = TRUE,
                           save_objects = FALSE,
@@ -164,6 +171,13 @@ SCQCbenchmark <- function(seurat_obj,
   if (!is.null(write_plots)) {
     plot <- write_plots
   }
+  mito_scale <- match.arg(mito_scale)
+  mito_cutoff_scale <- match.arg(mito_cutoff_scale)
+  min_mito <- normalize_mito_cutoff_value(
+    min_mito,
+    name = "min_mito",
+    scale = mito_cutoff_scale
+  )
 
   seurat_obj <- check_seu(seurat_obj, sample_by)
   if (!is.null(group_by)) {
@@ -188,6 +202,7 @@ SCQCbenchmark <- function(seurat_obj,
     mito_pattern = mito_pattern,
     overwrite = isTRUE(recompute_mito),
     convert_percent = TRUE,
+    mito_scale = mito_scale,
     verbose = FALSE
   )
   if (!is.list(scdet_options)) {
@@ -208,10 +223,13 @@ SCQCbenchmark <- function(seurat_obj,
       mito_features = mito_features,
       mito_pattern = mito_pattern,
       mito_assay = mito_assay,
-      recompute_mito = recompute_mito
+      recompute_mito = recompute_mito,
+      mito_scale = "fraction"
     ),
     scdet_options
   )
+  # The benchmark object has already been normalized to fractional metadata.
+  scdet_options$mito_scale <- "fraction"
   primary_profile <- names(scoring_profile_list)[1]
 
   strategies <- normalize_benchmark_strategies(strategies, group_by = group_by)
@@ -232,6 +250,7 @@ SCQCbenchmark <- function(seurat_obj,
       scdet_options,
       strategy$scdet_options
     )
+    strategy_scdet_options$mito_scale <- "fraction"
     qc_obj <- suppressWarnings(SCQCmulti(
       seurat_obj = seurat_obj,
       by = sample_by,
@@ -248,6 +267,10 @@ SCQCbenchmark <- function(seurat_obj,
       max_counts = max_counts,
       min_mito = min_mito,
       max_mito = strategy$max_mito,
+      use_recommended_cutoff = strategy$use_recommended_cutoff,
+      review_action = "warn_apply",
+      mito_scale = "fraction",
+      mito_cutoff_scale = "fraction",
       removeDouble = removeDouble,
       plot = FALSE,
       table_out = TRUE,
@@ -403,6 +426,14 @@ normalize_benchmark_strategies <- function(strategies, group_by = NULL) {
     if (!is.list(strategy$scdet_options)) {
       stop("Each strategy 'scdet_options' entry must be a list.", call. = FALSE)
     }
+    if (is.null(strategy$use_recommended_cutoff)) {
+      strategy$use_recommended_cutoff <- TRUE
+    }
+    if (!is.logical(strategy$use_recommended_cutoff) ||
+      length(strategy$use_recommended_cutoff) != 1L ||
+      is.na(strategy$use_recommended_cutoff)) {
+      stop("Each strategy 'use_recommended_cutoff' entry must be TRUE or FALSE.", call. = FALSE)
+    }
     strategy
   })
 }
@@ -436,6 +467,7 @@ default_benchmark_strategies <- function(group_by = NULL) {
       mode = "all",
       cutoff_strategy = "consensus",
       max_mito = "SCdetMito",
+      use_recommended_cutoff = FALSE,
       scdet_options = list(sample_cutoff_method = "largest_drop")
     ),
     list(
@@ -443,6 +475,7 @@ default_benchmark_strategies <- function(group_by = NULL) {
       mode = "all",
       cutoff_strategy = "consensus",
       max_mito = "SCdetMito",
+      use_recommended_cutoff = FALSE,
       scdet_options = list(sample_cutoff_method = "first_significant_high")
     ),
     list(
@@ -450,6 +483,7 @@ default_benchmark_strategies <- function(group_by = NULL) {
       mode = "all",
       cutoff_strategy = "consensus",
       max_mito = "SCdetMito",
+      use_recommended_cutoff = FALSE,
       scdet_options = list(sample_cutoff_method = "reference_guided")
     ),
     list(name = "SCdetMito_strictest", mode = "all", cutoff_strategy = "strictest", max_mito = "SCdetMito")
@@ -499,6 +533,7 @@ summarize_benchmark_strategy <- function(original_obj,
     summarize_retention_distribution(original_obj, filtered_obj, group_by)
   }
   cutoff_stats <- extract_cutoff_stats(filtered_obj, strategy)
+  cutoff_safety <- extract_cutoff_safety(filtered_obj, strategy)
   detection_settings <- extract_detection_settings(filtered_obj)
   downstream_metrics <- if (isTRUE(run_downstream)) {
     compute_downstream_metrics(
@@ -544,6 +579,9 @@ summarize_benchmark_strategy <- function(original_obj,
     applied_cutoff_min = cutoff_stats$AppliedCutoffMin,
     applied_cutoff_median = cutoff_stats$AppliedCutoffMedian,
     applied_cutoff_max = cutoff_stats$AppliedCutoffMax,
+    fallback_fraction = cutoff_safety$fallback_fraction,
+    upper_boundary_hit_fraction = cutoff_safety$upper_boundary_hit_fraction,
+    auto_apply_eligible = cutoff_safety$auto_apply_eligible,
     loss_test = detection_settings$loss_test,
     p_adjust_method = detection_settings$p_adjust_method,
     alpha = detection_settings$alpha,
@@ -636,6 +674,39 @@ extract_cutoff_stats <- function(filtered_obj, strategy) {
     ))
   }
   summarize_cutoff_vector(cutoff_plan$sample_plan$applied_cutoff)
+}
+
+extract_cutoff_safety <- function(filtered_obj, strategy) {
+  sample_plan <- filtered_obj@misc$SCdetMito_QC$sample_plan
+  if (is.null(sample_plan) || !nrow(sample_plan) || !identical(strategy$max_mito, "SCdetMito")) {
+    return(data.frame(
+      fallback_fraction = 0,
+      upper_boundary_hit_fraction = 0,
+      auto_apply_eligible = TRUE,
+      stringsAsFactors = FALSE
+    ))
+  }
+  boundary_column <- if (isTRUE(strategy$use_recommended_cutoff)) {
+    "recommended_upper_boundary_hit"
+  } else {
+    "selected_upper_boundary_hit"
+  }
+  boundary_values <- if (boundary_column %in% colnames(sample_plan)) {
+    sample_plan[[boundary_column]] %in% TRUE
+  } else {
+    rep(FALSE, nrow(sample_plan))
+  }
+  eligibility_values <- if ("applied_auto_apply_eligible" %in% colnames(sample_plan)) {
+    sample_plan$applied_auto_apply_eligible %in% TRUE
+  } else {
+    rep(FALSE, nrow(sample_plan))
+  }
+  data.frame(
+    fallback_fraction = mean(sample_plan$fallback_used %in% TRUE),
+    upper_boundary_hit_fraction = mean(boundary_values),
+    auto_apply_eligible = all(eligibility_values),
+    stringsAsFactors = FALSE
+  )
 }
 
 extract_detection_settings <- function(filtered_obj) {
@@ -970,41 +1041,40 @@ scale_benchmark_metric <- function(values, higher_better = TRUE) {
 }
 
 recommend_benchmark_strategy <- function(score_df) {
-  adaptive_df <- score_df[grepl("^(scdet_|SCdetMito_)", as.character(score_df$strategy)), , drop = FALSE]
-  if (!nrow(adaptive_df)) {
-    return(data.frame(
-      recommended_adaptive_strategy = NA_character_,
-      recommended_strategy = score_df$strategy[1],
-      top_scoring_strategy = score_df$strategy[1],
-      adaptive_strategy = NA_character_,
-      overall_strategy = score_df$strategy[1],
-      retention_rate = NA_real_,
-      median_mito_after = NA_real_,
-      sample_retention_cv = NA_real_,
-      group_retention_cv = NA_real_,
-      overall_score = NA_real_,
-      stringsAsFactors = FALSE
-    ))
-  }
-
-  adaptive_scores <- adaptive_df$overall_score
-  valid_idx <- which(is.finite(adaptive_scores))
-  recommended_adaptive <- if (length(valid_idx)) {
-    adaptive_df[valid_idx[which.max(adaptive_scores[valid_idx])], , drop = FALSE]
+  eligible <- if ("auto_apply_eligible" %in% colnames(score_df)) {
+    score_df$auto_apply_eligible %in% TRUE
   } else {
-    adaptive_df[1, , drop = FALSE]
+    rep(TRUE, nrow(score_df))
   }
+  eligible_df <- score_df[eligible & is.finite(score_df$overall_score), , drop = FALSE]
+  top_overall <- if (nrow(eligible_df)) eligible_df[1, , drop = FALSE] else NULL
+  adaptive_df <- score_df[
+    grepl("^(scdet_|SCdetMito_)", as.character(score_df$strategy)) & eligible,
+    ,
+    drop = FALSE
+  ]
+  valid_idx <- which(is.finite(adaptive_df$overall_score))
+  recommended_adaptive <- if (length(valid_idx)) {
+    adaptive_df[valid_idx[which.max(adaptive_df$overall_score[valid_idx])], , drop = FALSE]
+  } else {
+    NULL
+  }
+  adaptive_value <- function(column, default = NA_real_) {
+    if (is.null(recommended_adaptive)) default else recommended_adaptive[[column]][[1]]
+  }
+  adaptive_name <- if (is.null(recommended_adaptive)) NA_character_ else recommended_adaptive$strategy[[1]]
+  overall_name <- if (is.null(top_overall)) NA_character_ else top_overall$strategy[[1]]
   data.frame(
-    recommended_adaptive_strategy = recommended_adaptive$strategy,
-    recommended_strategy = score_df$strategy[1],
-    top_scoring_strategy = score_df$strategy[1],
-    adaptive_strategy = recommended_adaptive$strategy,
-    overall_strategy = score_df$strategy[1],
-    retention_rate = recommended_adaptive$retention_rate,
-    median_mito_after = recommended_adaptive$median_mito_after,
-    sample_retention_cv = recommended_adaptive$sample_retention_cv,
-    group_retention_cv = recommended_adaptive$group_retention_cv,
-    overall_score = recommended_adaptive$overall_score,
+    recommended_adaptive_strategy = adaptive_name,
+    recommended_strategy = overall_name,
+    top_scoring_strategy = overall_name,
+    adaptive_strategy = adaptive_name,
+    overall_strategy = overall_name,
+    retention_rate = adaptive_value("retention_rate"),
+    median_mito_after = adaptive_value("median_mito_after"),
+    sample_retention_cv = adaptive_value("sample_retention_cv"),
+    group_retention_cv = adaptive_value("group_retention_cv"),
+    overall_score = adaptive_value("overall_score"),
     stringsAsFactors = FALSE
   )
 }

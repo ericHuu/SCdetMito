@@ -37,6 +37,9 @@ SCQCone(
   mito_assay = NULL,
   recompute_mito = FALSE,
   use_recommended_cutoff = TRUE,
+  mito_scale = c("auto", "fraction", "percent"),
+  mito_cutoff_scale = c("auto", "fraction", "percent"),
+  review_action = c("stop", "warn_apply"),
   ...
 )
 }
@@ -109,6 +112,16 @@ exists. Defaults to \code{FALSE}.}
 \item{use_recommended_cutoff}{When \code{max_mito = "SCdetMito"}, apply the
 \code{recommended_cutoff} reported by \code{\link[=SCdetMito]{SCdetMito()}} instead of the
 user-selected \code{selected_cutoff}. Defaults to \code{TRUE}.}
+
+\item{mito_scale}{Scale of an existing mitochondrial metadata column:
+\code{"auto"}, \code{"fraction"}, or \code{"percent"}.}
+
+\item{mito_cutoff_scale}{Scale for numeric \code{min_mito} and \code{max_mito} values:
+\code{"auto"}, \code{"fraction"}, or \code{"percent"}.}
+
+\item{review_action}{Action when an adaptive cutoff is marked review-only.
+The safe default \code{"stop"} prevents automatic filtering; \code{"warn_apply"}
+applies it with an explicit warning.}
 
 \item{...}{Additional parameters, currently unused.}
 }

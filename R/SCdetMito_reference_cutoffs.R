@@ -1,8 +1,8 @@
 # SCdetMito
 # Author: Silu Hu
 # Contact: husilu0902@gmail.com
-# Version: 1.4.3
-# Last updated: 2026-05-23
+# Version: 1.4.4
+# Last updated: 2026-09-12
 
 #' Literature-informed mitochondrial cutoff references
 #'
@@ -19,6 +19,13 @@
 #' handling, dissociation stress, post-mortem interval, disease state, or cell
 #' composition can shift mitochondrial distributions.
 #'
+#' Osorio and Cai (2021; doi:10.1093/bioinformatics/btaa751) remains the direct
+#' source for the numeric human/mouse species priors. Higher-level QC papers
+#' such as miQC (Hippen et al., 2021; doi:10.1371/journal.pcbi.1009290) and the
+#' Luecken and Theis best-practices tutorial (2019;
+#' doi:10.15252/msb.20188746) support data- and context-aware QC, but do not
+#' replace the numeric source with validated tissue-specific constants.
+#'
 #' @param species Optional species filter. Matching is case-insensitive.
 #' @param tissue Optional tissue filter. Matching is case-insensitive. If a
 #'   species is supplied and no exact tissue match exists, the species-level
@@ -26,7 +33,8 @@
 #'
 #' @return A data.frame with columns `species`, `tissue`, `cell_context`,
 #'   `reference_cutoff`, `unit`, `evidence_level`, `reference_scope`,
-#'   `is_tissue_specific`, `source_short`, `source_detail`, `doi_or_url`, and
+#'   `is_tissue_specific`, `evidence_role`, `source_short`, `source_detail`,
+#'   `doi_or_url`, `adaptive_policy_support`, `adaptive_policy_dois`, and
 #'   `note`.
 #' @export
 #'
@@ -65,6 +73,14 @@ SCdetMito_reference_cutoffs <- function(species = NULL, tissue = NULL) {
       "species_global_prior_with_tissue_note"
     ),
     is_tissue_specific = rep(FALSE, 6),
+    evidence_role = c(
+      "direct_numeric_species_prior",
+      "direct_numeric_species_prior",
+      "context_note_using_species_prior",
+      "context_note_using_species_prior",
+      "context_note_using_species_prior",
+      "context_note_using_species_prior"
+    ),
     source_short = c(
       "Osorio and Cai 2021",
       "Osorio and Cai 2021",
@@ -82,6 +98,14 @@ SCdetMito_reference_cutoffs <- function(species = NULL, tissue = NULL) {
       "Osorio and Cai, Bioinformatics, 2021; PBMCs often have relatively low mitochondrial fractions, but inspection remains required."
     ),
     doi_or_url = rep("https://doi.org/10.1093/bioinformatics/btaa751", 6),
+    adaptive_policy_support = rep(
+      "Hippen et al. 2021 (miQC); Luecken and Theis 2019 (best-practices tutorial)",
+      6
+    ),
+    adaptive_policy_dois = rep(
+      "https://doi.org/10.1371/journal.pcbi.1009290;https://doi.org/10.15252/msb.20188746",
+      6
+    ),
     note = c(
       "Human global reference used as a decision prior; not a hard filtering rule.",
       "Mouse global reference used as a decision prior; not a hard filtering rule.",

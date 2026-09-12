@@ -5,7 +5,7 @@ test_that("load_demo_pbmc returns the bundled multi-donor PBMC object", {
 
   seu <- load_demo_pbmc()
   expect_s4_class(seu, "Seurat")
-  expect_equal(ncol(seu), 10000)
+  expect_equal(ncol(seu), 1000)
   expect_equal(length(unique(seu$sample)), 4)
   expect_equal(length(unique(seu$group)), 2)
   expect_true(all(c(

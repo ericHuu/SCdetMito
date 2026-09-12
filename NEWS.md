@@ -1,3 +1,34 @@
+# SCdetMito 1.4.4
+
+Date: 2026-09-12
+
+## Phase 1 threshold safety and rule hardening
+
+- Restricted cutoff search bounds and cell-level mitochondrial cutoffs to
+  valid fractions in the interval 0--1.
+- Unified retained-cell profiling and filtering at the cutoff boundary using
+  inclusive `<=` semantics.
+- Added explicit fraction/percent controls and ambiguous-scale detection for
+  existing mitochondrial metadata and numeric QC cutoffs.
+- Changed no-boundary fallback policy to prefer an available literature prior,
+  with quantile fallback used only when no prior is available.
+- Marked fallback-derived, upper-boundary, low-retention, and extreme
+  reference-deviation results as review-only; adaptive QC wrappers now stop by
+  default unless users explicitly choose `review_action = "warn_apply"`.
+- Made reference-guided selection choose the significant boundary nearest the
+  available prior and made benchmark method labels apply their named selected
+  cutoff rather than collapsing to the common recommendation.
+- Added focused unit tests for threshold validity, scale ambiguity, boundary
+  behavior, fallback safety, wrapper enforcement, and benchmark eligibility.
+
+## Phase 2 realistic-data validation hardening
+
+- Added a retention guard to the reference-aware recommendation policy. When
+  the significant boundary nearest a literature prior would retain fewer than
+  30% of cells, a more permissive significant boundary meeting the retention
+  floor is reported when available. Extreme reference deviations remain
+  review-only and are never silently auto-applied.
+
 # SCdetMito 1.4.3
 
 Date: 2026-05-23

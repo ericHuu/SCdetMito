@@ -1,0 +1,6 @@
+^CITATION\.cff$
+^\.DS_Store$
+^\.Rhistory$
+^inst/\.DS_Store$
+^SCdetMito_.*[.]tar[.]gz$
+^data-raw$

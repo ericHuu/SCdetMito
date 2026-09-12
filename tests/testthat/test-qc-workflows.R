@@ -399,6 +399,12 @@ test_that("reference cutoff table is available", {
   expect_true(any(ref$species == "mouse"))
   expect_true(all(ref$reference_cutoff > 0 & ref$reference_cutoff <= 1))
   expect_true(all(ref$doi_or_url == "https://doi.org/10.1093/bioinformatics/btaa751"))
+  expect_equal(
+    ref$evidence_role[ref$tissue %in% c("global")],
+    rep("direct_numeric_species_prior", 2)
+  )
+  expect_true(all(grepl("miQC", ref$adaptive_policy_support, fixed = TRUE)))
+  expect_true(all(grepl("10.1371/journal.pcbi.1009290", ref$adaptive_policy_dois, fixed = TRUE)))
   expect_false(any(ref$is_tissue_specific))
 })
 
@@ -610,10 +616,14 @@ test_that("reference-aware cutoff modes report first-boundary and selected cutof
   expect_equal(first$sample_cutoff_summary$detected_cutoff, first$sample_cutoff_summary$selected_cutoff)
   expect_equal(first$sample_cutoff_summary$cutoff_source, "first_significant_high")
   expect_equal(guided$sample_cutoff_summary$reference_cutoff, 0.10)
-  expect_equal(guided$sample_cutoff_summary$selected_cutoff, 0.20)
+  expect_equal(guided$sample_cutoff_summary$selected_cutoff, 0.05)
+  expect_equal(
+    guided$sample_cutoff_summary$selected_cutoff_source,
+    "reference_guided_nearest_significant_boundary"
+  )
   expect_true("warning_level" %in% colnames(guided$sample_cutoff_summary))
   expect_equal(strict$sample_cutoff_summary$selected_cutoff, 0.05)
-  expect_equal(strict$sample_cutoff_summary$recommended_cutoff, 0.20)
+  expect_equal(strict$sample_cutoff_summary$recommended_cutoff, 0.05)
 })
 
 test_that("SCdetMito adjusts p-values within sample-level candidate intervals", {
@@ -775,7 +785,7 @@ test_that("SCQCone and SCQCmulti support custom metric columns", {
     table_out = TRUE,
     output_dir = output_dir
   )
-  qc_adaptive <- SCQCmulti(
+  qc_adaptive <- suppressWarnings(SCQCmulti(
     seu,
     by = "sample",
     mode = "all",
@@ -790,8 +800,9 @@ test_that("SCQCone and SCQCmulti support custom metric columns", {
     removeDouble = FALSE,
     plot = FALSE,
     table_out = TRUE,
+    review_action = "warn_apply",
     output_dir = output_dir
-  )
+  ))
 
   expect_s4_class(qc_one, "Seurat")
   expect_s4_class(qc_all, "Seurat")

@@ -1,8 +1,8 @@
 # SCdetMito
 # Author: Silu Hu
 # Contact: husilu0902@gmail.com
-# Version: 1.4.3
-# Last updated: 2026-05-23
+# Version: 1.4.4
+# Last updated: 2026-09-12
 
 common_mito_patterns <- function() {
   c("^MT-", "^mt-", "^Mt-", "^MT\\.", "^MT_", "^mt\\.", "^mt_", "^mitochondrial")
@@ -93,7 +93,9 @@ match_exact_features <- function(feature_names, exact_features, ignore_case = FA
 
 .validate_existing_mito_ratio <- function(object,
                                           mito_col,
-                                          convert_percent = TRUE) {
+                                          convert_percent = TRUE,
+                                          mito_scale = c("auto", "fraction", "percent")) {
+  mito_scale <- match.arg(mito_scale)
   values <- object@meta.data[[mito_col]]
   if (!is.numeric(values)) {
     stop("Existing mitochondrial column '", mito_col, "' is not numeric.", call. = FALSE)
@@ -110,9 +112,48 @@ match_exact_features <- function(feature_names, exact_features, ignore_case = FA
     stop("Existing mitochondrial column '", mito_col, "' contains negative values.", call. = FALSE)
   }
 
+  resolved_scale <- mito_scale
+  recorded_info <- object@misc$SCdetMito_mito_ratio_info
+  if (identical(mito_scale, "auto") &&
+    is.list(recorded_info) &&
+    identical(recorded_info$mito_col, mito_col) &&
+    length(recorded_info$scale) == 1L &&
+    !is.na(recorded_info$scale) &&
+    recorded_info$scale %in% c("fraction", "percent")) {
+      resolved_scale <- recorded_info$scale
+    }
   converted <- FALSE
+  inferred_input_scale <- resolved_scale
   max_value <- if (length(values)) max(values, na.rm = TRUE) else 0
-  if (is.finite(max_value) && max_value > 1) {
+  if (identical(resolved_scale, "fraction")) {
+    if (max_value > 1) {
+      stop(
+        "Existing mitochondrial column '", mito_col,
+        "' exceeds 1 but the resolved metadata scale is 'fraction'.",
+        call. = FALSE
+      )
+    }
+  } else if (identical(resolved_scale, "percent")) {
+    if (max_value > 100) {
+      stop(
+        "Existing mitochondrial column '", mito_col,
+        "' exceeds 100 but the resolved metadata scale is 'percent'.",
+        call. = FALSE
+      )
+    }
+    object@meta.data[[mito_col]] <- values / 100
+    converted <- TRUE
+  } else if (is.finite(max_value) && max_value > 1) {
+    inferred_input_scale <- "percent"
+    fraction_like_fraction <- mean(values <= 1)
+    if (fraction_like_fraction >= 0.95 && max_value <= 2) {
+      stop(
+        "Existing mitochondrial column '", mito_col,
+        "' has an ambiguous scale: at least 95% of values are <= 1 but a small number exceed 1. ",
+        "Set mito_scale = 'fraction' after correcting outliers, or mito_scale = 'percent' for percent-scale data.",
+        call. = FALSE
+      )
+    }
     if (max_value <= 100 && isTRUE(convert_percent)) {
       object@meta.data[[mito_col]] <- values / 100
       converted <- TRUE
@@ -131,9 +172,23 @@ match_exact_features <- function(feature_names, exact_features, ignore_case = FA
         call. = FALSE
       )
     }
+  } else {
+    inferred_input_scale <- "fraction"
+    if (length(values) && max_value > 0 && grepl("percent|pct", mito_col, ignore.case = TRUE)) {
+      warning(
+        "Existing mitochondrial column '", mito_col,
+        "' contains only values <= 1 but its name suggests percentages. ",
+        "It was treated as a fraction; set mito_scale = 'percent' if values such as 0.5 mean 0.5%.",
+        call. = FALSE
+      )
+    }
   }
 
-  list(object = object, converted = converted)
+  list(
+    object = object,
+    converted = converted,
+    input_scale = inferred_input_scale
+  )
 }
 
 .get_feature_metadata <- function(object, assay) {
@@ -256,6 +311,7 @@ match_exact_features <- function(feature_names, exact_features, ignore_case = FA
                                    n_mito_features,
                                    mito_feature_source,
                                    converted_from_percent,
+                                   input_scale = "fraction",
                                    mito_features_used = character(0)) {
   object@misc$SCdetMito_mito_ratio_info <- list(
     mito_col = mito_col,
@@ -263,6 +319,7 @@ match_exact_features <- function(feature_names, exact_features, ignore_case = FA
     species = species %||% NA_character_,
     n_mito_features = n_mito_features,
     mito_feature_source = mito_feature_source,
+    input_scale = input_scale,
     scale = "fraction",
     converted_from_percent = isTRUE(converted_from_percent)
   )
@@ -274,6 +331,7 @@ match_exact_features <- function(feature_names, exact_features, ignore_case = FA
     pattern = mito_feature_source,
     mito_column = mito_col,
     assay = assay,
+    input_scale = input_scale,
     scale = "fraction",
     converted_from_percent = isTRUE(converted_from_percent)
   )
@@ -315,6 +373,10 @@ match_exact_features <- function(feature_names, exact_features, ignore_case = FA
 #'   Defaults to `FALSE`.
 #' @param convert_percent Whether percent-scale existing values should be
 #'   converted to fractions. Defaults to `TRUE`.
+#' @param mito_scale Scale of an existing mitochondrial metadata column.
+#'   `"fraction"` requires values in 0--1, `"percent"` requires values in
+#'   0--100 and converts them to fractions, and `"auto"` retains the legacy
+#'   inference while rejecting strongly ambiguous mixed-scale columns.
 #' @param verbose Whether to emit status messages. Defaults to `TRUE`.
 #'
 #' @return A Seurat object with `object@meta.data[[mito_col]]` stored as a
@@ -338,6 +400,7 @@ ensure_mito_ratio <- function(object,
                               mito_pattern = NULL,
                               overwrite = FALSE,
                               convert_percent = TRUE,
+                              mito_scale = c("auto", "fraction", "percent"),
                               verbose = TRUE) {
   if (!inherits(object, "Seurat")) {
     stop("'object' must be a Seurat object.", call. = FALSE)
@@ -345,6 +408,7 @@ ensure_mito_ratio <- function(object,
   if (!is.character(mito_col) || length(mito_col) != 1 || !nzchar(mito_col)) {
     stop("'mito_col' must be a single non-empty metadata column name.", call. = FALSE)
   }
+  mito_scale <- match.arg(mito_scale)
   assay <- assay %||% Seurat::DefaultAssay(object)
   if (!assay %in% names(object@assays)) {
     stop("Assay '", assay, "' is not present in the Seurat object.", call. = FALSE)
@@ -354,7 +418,8 @@ ensure_mito_ratio <- function(object,
     validated <- .validate_existing_mito_ratio(
       object = object,
       mito_col = mito_col,
-      convert_percent = convert_percent
+      convert_percent = convert_percent,
+      mito_scale = mito_scale
     )
     object <- validated$object
     object <- .store_mito_ratio_info(
@@ -365,6 +430,7 @@ ensure_mito_ratio <- function(object,
       n_mito_features = NA_integer_,
       mito_feature_source = "existing_metadata_column",
       converted_from_percent = validated$converted,
+      input_scale = validated$input_scale,
       mito_features_used = character(0)
     )
     if (isTRUE(verbose)) {
@@ -412,6 +478,7 @@ ensure_mito_ratio <- function(object,
     n_mito_features = length(detection$features),
     mito_feature_source = detection$source,
     converted_from_percent = FALSE,
+    input_scale = "fraction",
     mito_features_used = detection$features
   )
   if (isTRUE(verbose)) {

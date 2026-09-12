@@ -42,8 +42,10 @@ SCdetMito(
   mito_pattern = NULL,
   mito_assay = NULL,
   recompute_mito = FALSE,
+  mito_scale = c("auto", "fraction", "percent"),
   output_dir = ".",
-  fallback_method = c("quantile", "max_cut", "none"),
+  fallback_method = c("reference_then_quantile", "reference", "quantile", "max_cut",
+    "none"),
   fallback_quantile = 0.9,
   return_details = FALSE,
   ...
@@ -99,7 +101,8 @@ to \code{\link[stats:p.adjust]{stats::p.adjust()}}. Use \code{"none"} to leave p
 significant intervals. Defaults to \code{"largest_drop"} for backward
 compatibility. \code{"reference_guided"} is recommended when a literature
 reference is supplied and the user wants the first significant high-to-low
-boundary prioritized over the largest-drop boundary.}
+significant boundary nearest the available literature prior. If no prior
+is available, it uses the first significant high-to-low boundary.}
 
 \item{species, tissue}{Optional species and tissue names used to look up
 literature-informed reference cutoffs. These references are decision
@@ -130,10 +133,17 @@ to \code{\link[=ensure_mito_ratio]{ensure_mito_ratio()}}.}
 exists. Defaults to \code{FALSE}, which preserves an existing validated
 mitochondrial fraction column.}
 
+\item{mito_scale}{Scale of an existing mitochondrial metadata column:
+\code{"fraction"}, \code{"percent"}, or \code{"auto"}. The default validates and
+converts clearly percent-scale values while rejecting ambiguous mixtures.}
+
 \item{output_dir}{Directory for exported outputs.}
 
-\item{fallback_method}{Fallback used only when no significant interval is
-found for a sample. Options are \code{"quantile"}, \code{"max_cut"}, and \code{"none"}.}
+\item{fallback_method}{Fallback reported only when no significant interval
+is found. \code{"reference_then_quantile"} (default) uses an available
+literature prior, otherwise the requested quantile. Other options are
+\code{"reference"}, \code{"quantile"}, \code{"max_cut"}, and \code{"none"}. Fallbacks are
+review-only and are not eligible for automatic filtering.}
 
 \item{fallback_quantile}{Quantile used when \code{fallback_method = "quantile"}.}
 
@@ -153,6 +163,9 @@ selected mode. The
 \code{warning_level} column is human-readable; logical warning columns such as
 \code{has_reference_deviation}, \code{has_low_retention_warning}, and
 \code{has_fallback_warning} are intended for programmatic use. The
+\code{selected_auto_apply_eligible} and \code{recommended_auto_apply_eligible}
+fields distinguish valid diagnostic outputs from cutoffs that may be
+applied automatically by the QC wrappers. The
 \code{change_points} element is retained as a legacy alias of
 \code{interval_loss_table}.
 }
@@ -166,7 +179,7 @@ breakpoint model.
 }
 \details{
 For each sample \code{s} and candidate mitochondrial cutoff \code{c}, the retained-cell
-profile is calculated as \code{R_s(c) = sum(m_i < c)}, where \code{m_i} is the
+profile is calculated as \code{R_s(c) = sum(m_i <= c)}, where \code{m_i} is the
 mitochondrial ratio of cell \code{i}. Adjacent candidate cutoffs define an
 interval-specific cell loss, \verb{L_s(c_j) = R_s(c_\{j-1\}) - R_s(c_j)}. Candidate
 intervals are first filtered by absolute cell loss, relative cell loss,
@@ -176,7 +189,11 @@ significant intervals are summarized into sample-level cutoff candidates:
 the first significant high-to-low boundary, the largest-drop boundary, the
 selected cutoff under the requested decision mode, and a package-level
 \code{recommended_cutoff} derived by the default reference-aware recommendation
-policy. When species/tissue or a user reference is supplied,
+policy. If the significant boundary nearest a literature prior would retain
+fewer than 30\% of cells and a more permissive significant boundary reaches
+that retention floor, the latter is reported with an explicit retention-
+guard provenance label. Reference-deviation guardrails still determine
+whether it may be applied automatically. When species/tissue or a user reference is supplied,
 literature-informed reference cutoffs are added for interpretation and
 warning generation. A sample-supported global cutoff is returned for
 multi-sample inputs.

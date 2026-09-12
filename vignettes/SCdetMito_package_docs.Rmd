@@ -17,9 +17,9 @@ knitr::opts_chunk$set(
 
 # SCdetMito Package Documentation
 
-Version: 1.4.3
+Version: 1.4.4
 
-Updated: 2026-05-23
+Updated: 2026-09-12
 
 Author: Silu Hu
 
@@ -77,6 +77,12 @@ det$sample_cutoff_summary
 `selected_cutoff`. `recommended_cutoff` is reported for every sample using
 SCdetMito's default reference-aware policy, so strict or exploratory selected
 modes can be compared with the package recommendation.
+
+Fallback-derived results, upper search-boundary hits, cutoffs retaining less
+than 30% of cells, and cutoffs at least three times an available literature
+prior are marked review-only. `SCQCone()` and `SCQCmulti()` stop before applying
+such results unless the user supplies an explicit numeric cutoff or sets
+`review_action = "warn_apply"` after inspection.
 
 ## Mitochondrial Ratio Handling
 

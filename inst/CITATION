@@ -3,6 +3,6 @@ bibentry(
   title = "SCdetMito: An R package for reference-aware adaptive mitochondrial quality control in single-cell RNA-seq data",
   author = person("Silu", "Hu"),
   year = "2026",
-  note = "R package version 1.4.3",
+  note = "R package version 1.4.4",
   url = "https://github.com/ericHuu/SCdetMito"
 )

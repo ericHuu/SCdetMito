@@ -28,8 +28,8 @@ Raw counts and mitochondrial features are retained. `mitoRatio` was calculated
 with `ensure_mito_ratio(species = "human")` and is stored as a fraction in
 0-1 scale.
 
-The maintainer build script downsampled each donor to 2,500 cells using fixed
-seed 1401, yielding 10,000 cells total. The maintainer-side construction script
+The maintainer build script downsampled each donor to 250 cells using fixed
+seed 1401, yielding 1,000 cells total. The maintainer-side construction script
 is kept in the GitHub repository under `data-raw/`, is excluded from the source
 package build, and is not run during package installation, tests, vignettes, or
 R CMD check.

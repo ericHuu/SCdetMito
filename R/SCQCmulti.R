@@ -1,8 +1,8 @@
 # SCdetMito
 # Author: Silu Hu
 # Contact: husilu0902@gmail.com
-# Version: 1.4.3
-# Last updated: 2026-05-23
+# Version: 1.4.4
+# Last updated: 2026-09-12
 
 #' SCQCmulti: perform QC for multi-sample single-cell RNA-seq data
 #'
@@ -87,10 +87,17 @@
 #' @param mito_assay Optional assay used for mitochondrial ratio calculation.
 #' @param recompute_mito Whether to recompute `mito_col` even when it already
 #'   exists. Defaults to `FALSE`.
+#' @param mito_scale Scale of an existing mitochondrial metadata column:
+#'   `"auto"`, `"fraction"`, or `"percent"`.
+#' @param mito_cutoff_scale Scale for numeric `min_mito` and `max_mito` values:
+#'   `"auto"`, `"fraction"`, or `"percent"`.
 #' @param use_recommended_cutoff When `max_mito = "SCdetMito"`, use
 #'   `recommended_cutoff` from [SCdetMito()] as the sample-level input for
 #'   consensus, strictest, and groupwise filtering. Defaults to `TRUE`. Set to
 #'   `FALSE` to apply the user-selected `selected_cutoff`.
+#' @param review_action Action when an adaptive cutoff plan is marked
+#'   review-only. The safe default `"stop"` prevents automatic filtering;
+#'   `"warn_apply"` applies it with an explicit warning.
 #' @param ... Additional parameters, currently unused.
 #'
 #' @return A QC-filtered Seurat object.
@@ -152,6 +159,9 @@ SCQCmulti <- function(seurat_obj,
                       mito_assay = NULL,
                       recompute_mito = FALSE,
                       use_recommended_cutoff = TRUE,
+                      mito_scale = c("auto", "fraction", "percent"),
+                      mito_cutoff_scale = c("auto", "fraction", "percent"),
+                      review_action = c("stop", "warn_apply"),
                       ...) {
   message("Performing quality control for single-cell RNA-seq data...")
 
@@ -164,6 +174,9 @@ SCQCmulti <- function(seurat_obj,
   plot <- write_plots %||% plot
   table_out <- write_tables %||% table_out
   fail_action <- match.arg(fail_action)
+  mito_scale <- match.arg(mito_scale)
+  mito_cutoff_scale <- match.arg(mito_cutoff_scale)
+  review_action <- match.arg(review_action)
   if (is.null(by) || identical(by, "")) {
     stop("A sample column must be supplied through 'sample_col' or legacy 'by'.", call. = FALSE)
   }
@@ -207,6 +220,7 @@ SCQCmulti <- function(seurat_obj,
     mito_pattern = mito_pattern,
     overwrite = isTRUE(recompute_mito),
     convert_percent = TRUE,
+    mito_scale = mito_scale,
     verbose = FALSE
   )
   if (anyNA(seurat_obj@meta.data[[by]])) {
@@ -224,7 +238,8 @@ SCQCmulti <- function(seurat_obj,
     min_counts = min_counts,
     max_counts = max_counts,
     min_mito = min_mito,
-    max_mito = if (identical(max_mito, "SCdetMito")) NULL else max_mito
+    max_mito = if (identical(max_mito, "SCdetMito")) NULL else max_mito,
+    mito_cutoff_scale = mito_cutoff_scale
   )
   min_genes <- qc_bounds$min_genes
   max_genes <- qc_bounds$max_genes
@@ -234,6 +249,23 @@ SCQCmulti <- function(seurat_obj,
   if (!identical(max_mito, "SCdetMito")) {
     max_mito <- qc_bounds$max_mito
   }
+  resolved_scdet_options <- utils::modifyList(
+    list(
+      species = species,
+      tissue = tissue,
+      reference_cutoff = reference_cutoff,
+      reference_table = reference_table,
+      reference_warning = reference_warning,
+      auto_add_mito = auto_add_mito,
+      mito_features = mito_features,
+      mito_pattern = mito_pattern,
+      mito_assay = mito_assay,
+      recompute_mito = recompute_mito
+    ),
+    scdet_options
+  )
+  # The public wrapper has already normalized the metadata column to fractions.
+  resolved_scdet_options$mito_scale <- "fraction"
 
   cutoff_plan <- build_multisample_cutoff_plan(
     seurat_obj = seurat_obj,
@@ -244,26 +276,19 @@ SCQCmulti <- function(seurat_obj,
       cutoff_strategy = cutoff_strategy,
     cutoff_quantile = cutoff_quantile,
     cutoff_support_fraction = cutoff_support_fraction,
-    scdet_options = utils::modifyList(
-      list(
-        species = species,
-        tissue = tissue,
-        reference_cutoff = reference_cutoff,
-        reference_table = reference_table,
-        reference_warning = reference_warning,
-        auto_add_mito = auto_add_mito,
-        mito_features = mito_features,
-        mito_pattern = mito_pattern,
-        mito_assay = mito_assay,
-        recompute_mito = recompute_mito
-      ),
-      scdet_options
-    ),
+    scdet_options = resolved_scdet_options,
     use_recommended_cutoff = use_recommended_cutoff,
     table_out = table_out,
     plot = plot && identical(max_mito, "SCdetMito"),
     output_dir = output_dir
   )
+  if (identical(max_mito, "SCdetMito")) {
+    enforce_cutoff_review_policy(
+      auto_apply_eligible = cutoff_plan$sample_plan$applied_auto_apply_eligible,
+      review_action = review_action,
+      context = paste0("SCdetMito ", cutoff_strategy, " cutoff plan")
+    )
+  }
   applied_cutoffs <- cutoff_plan$sample_plan$applied_cutoff
 
   if (table_out) {
@@ -409,6 +434,9 @@ SCQCmulti <- function(seurat_obj,
           min_mito = min_mito,
           max_mito = max_mito,
           use_recommended_cutoff = use_recommended_cutoff,
+          mito_scale = mito_scale,
+          mito_cutoff_scale = mito_cutoff_scale,
+          review_action = review_action,
           remove_doublets = removeDouble
         ),
         cutoff_plan = cutoff_plan,
@@ -468,7 +496,9 @@ SCQCmulti <- function(seurat_obj,
       plot = FALSE,
       table_out = FALSE,
       output_dir = output_dir,
-      fail_action = fail_action
+      fail_action = fail_action,
+      mito_scale = "fraction",
+      mito_cutoff_scale = "fraction"
     )
   })
   names(split_results) <- sample_levels
@@ -544,6 +574,9 @@ SCQCmulti <- function(seurat_obj,
         min_mito = min_mito,
         max_mito = max_mito,
         use_recommended_cutoff = use_recommended_cutoff,
+        mito_scale = mito_scale,
+        mito_cutoff_scale = mito_cutoff_scale,
+        review_action = review_action,
         remove_doublets = removeDouble
       ),
       cutoff_plan = cutoff_plan,

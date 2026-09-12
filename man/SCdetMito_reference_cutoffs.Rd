@@ -16,7 +16,8 @@ global row is returned with an informational message.}
 \value{
 A data.frame with columns \code{species}, \code{tissue}, \code{cell_context},
 \code{reference_cutoff}, \code{unit}, \code{evidence_level}, \code{reference_scope},
-\code{is_tissue_specific}, \code{source_short}, \code{source_detail}, \code{doi_or_url}, and
+\code{is_tissue_specific}, \code{evidence_role}, \code{source_short}, \code{source_detail},
+\code{doi_or_url}, \code{adaptive_policy_support}, \code{adaptive_policy_dois}, and
 \code{note}.
 }
 \description{
@@ -31,6 +32,13 @@ provided where tissue-specific numeric values should not be over-specified.
 Tissue rows add context notes for interpretation, especially when tissue
 handling, dissociation stress, post-mortem interval, disease state, or cell
 composition can shift mitochondrial distributions.
+
+Osorio and Cai (2021; doi:10.1093/bioinformatics/btaa751) remains the direct
+source for the numeric human/mouse species priors. Higher-level QC papers
+such as miQC (Hippen et al., 2021; doi:10.1371/journal.pcbi.1009290) and the
+Luecken and Theis best-practices tutorial (2019;
+doi:10.15252/msb.20188746) support data- and context-aware QC, but do not
+replace the numeric source with validated tissue-specific constants.
 }
 \examples{
 SCdetMito_reference_cutoffs()

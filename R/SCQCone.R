@@ -1,8 +1,8 @@
 # SCdetMito
 # Author: Silu Hu
 # Contact: husilu0902@gmail.com
-# Version: 1.4.3
-# Last updated: 2026-05-23
+# Version: 1.4.4
+# Last updated: 2026-09-12
 
 #' SCQCone: perform QC for a single single-cell RNA-seq sample or group
 #'
@@ -61,9 +61,16 @@
 #' @param mito_assay Optional assay used for mitochondrial ratio calculation.
 #' @param recompute_mito Whether to recompute `mito_col` even when it already
 #'   exists. Defaults to `FALSE`.
+#' @param mito_scale Scale of an existing mitochondrial metadata column:
+#'   `"auto"`, `"fraction"`, or `"percent"`.
+#' @param mito_cutoff_scale Scale for numeric `min_mito` and `max_mito` values:
+#'   `"auto"`, `"fraction"`, or `"percent"`.
 #' @param use_recommended_cutoff When `max_mito = "SCdetMito"`, apply the
 #'   `recommended_cutoff` reported by [SCdetMito()] instead of the
 #'   user-selected `selected_cutoff`. Defaults to `TRUE`.
+#' @param review_action Action when an adaptive cutoff is marked review-only.
+#'   The safe default `"stop"` prevents automatic filtering; `"warn_apply"`
+#'   applies it with an explicit warning.
 #' @param ... Additional parameters, currently unused.
 #'
 #' @return A QC-filtered Seurat object.
@@ -113,6 +120,9 @@ SCQCone <- function(seurat_obj,
                     mito_assay = NULL,
                     recompute_mito = FALSE,
                     use_recommended_cutoff = TRUE,
+                    mito_scale = c("auto", "fraction", "percent"),
+                    mito_cutoff_scale = c("auto", "fraction", "percent"),
+                    review_action = c("stop", "warn_apply"),
                     ...) {
   message("Performing quality control for single-cell RNA-seq data...")
 
@@ -123,6 +133,9 @@ SCQCone <- function(seurat_obj,
   plot <- write_plots %||% plot
   table_out <- write_tables %||% table_out
   fail_action <- match.arg(fail_action)
+  mito_scale <- match.arg(mito_scale)
+  mito_cutoff_scale <- match.arg(mito_cutoff_scale)
+  review_action <- match.arg(review_action)
 
   output_dir <- ensure_output_dir(output_dir)
   seurat_obj <- check_seu(seurat_obj, nFeature_RNA, must_be_numeric = TRUE)
@@ -144,6 +157,7 @@ SCQCone <- function(seurat_obj,
     mito_pattern = mito_pattern,
     overwrite = isTRUE(recompute_mito),
     convert_percent = TRUE,
+    mito_scale = mito_scale,
     verbose = FALSE
   )
   qc_bounds <- validate_qc_bounds(
@@ -152,7 +166,8 @@ SCQCone <- function(seurat_obj,
     min_counts = min_counts,
     max_counts = max_counts,
     min_mito = min_mito,
-    max_mito = if (identical(max_mito, "SCdetMito")) NULL else max_mito
+    max_mito = if (identical(max_mito, "SCdetMito")) NULL else max_mito,
+    mito_cutoff_scale = mito_cutoff_scale
   )
   min_genes <- qc_bounds$min_genes
   max_genes <- qc_bounds$max_genes
@@ -162,6 +177,7 @@ SCQCone <- function(seurat_obj,
 
   inferred_mito_cutoff <- max_mito
   cutoff_applied_source <- "user_defined"
+  cutoff_auto_apply_eligible <- TRUE
   detection_details <- NULL
   if (identical(max_mito, "SCdetMito")) {
     temp_group_column <- ".scdetmito_temp_group"
@@ -183,6 +199,7 @@ SCQCone <- function(seurat_obj,
       mito_pattern = mito_pattern,
       mito_assay = mito_assay,
       recompute_mito = recompute_mito,
+      mito_scale = "fraction",
       return_details = TRUE
     )
     summary <- detection_details$sample_cutoff_summary
@@ -195,11 +212,27 @@ SCQCone <- function(seurat_obj,
       }
     inferred_mito_cutoff <- summary[[cutoff_column]][[1]]
     cutoff_applied_source <- cutoff_column
+    eligibility_column <- if (identical(cutoff_column, "recommended_cutoff")) {
+      "recommended_auto_apply_eligible"
+    } else {
+      "selected_auto_apply_eligible"
+    }
+    cutoff_auto_apply_eligible <- if (eligibility_column %in% colnames(summary)) {
+      isTRUE(summary[[eligibility_column]][[1]])
+    } else {
+      FALSE
+    }
     if (!is.finite(inferred_mito_cutoff)) {
       inferred_mito_cutoff <- detection_details$cutoff
       cutoff_applied_source <- "sample_supported_global_cutoff"
+      cutoff_auto_apply_eligible <- FALSE
     }
     seurat_obj@meta.data[[temp_group_column]] <- NULL
+    enforce_cutoff_review_policy(
+      auto_apply_eligible = cutoff_auto_apply_eligible,
+      review_action = review_action,
+      context = paste0("SCdetMito ", cutoff_applied_source)
+    )
   } else {
     inferred_mito_cutoff <- qc_bounds$max_mito
   }
@@ -333,6 +366,10 @@ SCQCone <- function(seurat_obj,
       reference_cutoff = reference_cutoff,
       reference_warning = reference_warning,
       use_recommended_cutoff = use_recommended_cutoff,
+      mito_scale = mito_scale,
+      mito_cutoff_scale = mito_cutoff_scale,
+      review_action = review_action,
+      auto_apply_eligible = cutoff_auto_apply_eligible,
       cutoff_applied_source = cutoff_applied_source,
       remove_doublets = removeDouble
     ),

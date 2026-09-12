@@ -42,6 +42,8 @@ SCQCbenchmark(
   mito_pattern = NULL,
   mito_assay = NULL,
   recompute_mito = FALSE,
+  mito_scale = c("auto", "fraction", "percent"),
+  mito_cutoff_scale = c("auto", "fraction", "percent"),
   write_plots = NULL,
   plot = TRUE,
   save_objects = FALSE,
@@ -126,6 +128,13 @@ to \code{\link[=ensure_mito_ratio]{ensure_mito_ratio()}} and adaptive SCdetMito 
 
 \item{recompute_mito}{Whether to recompute \code{mito_col} even when it already
 exists. Defaults to \code{FALSE}.}
+
+\item{mito_scale}{Scale of an existing mitochondrial metadata column:
+\code{"auto"}, \code{"fraction"}, or \code{"percent"}.}
+
+\item{mito_cutoff_scale}{Scale for the user-supplied numeric \code{min_mito}:
+\code{"auto"}, \code{"fraction"}, or \code{"percent"}. Built-in strategy cutoffs are
+always stored as fractions.}
 
 \item{plot, write_plots}{Whether to export benchmark plots. Defaults to
 \code{TRUE}. \code{write_plots} is the clearer preferred name.}

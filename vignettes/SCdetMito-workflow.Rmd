@@ -65,6 +65,10 @@ det$sample_cutoff_summary[, c(
 is retained as a backward-compatible alias of `selected_cutoff`.
 `recommended_cutoff` is SCdetMito's default reference-aware recommendation and
 is reported even when a strict or exploratory selected mode is requested.
+Fallback-derived, upper-boundary, low-retention, and extreme
+reference-deviation results are marked review-only. Adaptive QC wrappers stop
+before applying them unless the user provides an explicit numeric cutoff or
+sets `review_action = "warn_apply"` after inspection.
 
 ## Group-aware multi-sample QC
 

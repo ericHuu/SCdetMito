@@ -46,6 +46,9 @@ SCQCmulti(
   mito_assay = NULL,
   recompute_mito = FALSE,
   use_recommended_cutoff = TRUE,
+  mito_scale = c("auto", "fraction", "percent"),
+  mito_cutoff_scale = c("auto", "fraction", "percent"),
+  review_action = c("stop", "warn_apply"),
   ...
 )
 }
@@ -148,6 +151,16 @@ exists. Defaults to \code{FALSE}.}
 \code{recommended_cutoff} from \code{\link[=SCdetMito]{SCdetMito()}} as the sample-level input for
 consensus, strictest, and groupwise filtering. Defaults to \code{TRUE}. Set to
 \code{FALSE} to apply the user-selected \code{selected_cutoff}.}
+
+\item{mito_scale}{Scale of an existing mitochondrial metadata column:
+\code{"auto"}, \code{"fraction"}, or \code{"percent"}.}
+
+\item{mito_cutoff_scale}{Scale for numeric \code{min_mito} and \code{max_mito} values:
+\code{"auto"}, \code{"fraction"}, or \code{"percent"}.}
+
+\item{review_action}{Action when an adaptive cutoff plan is marked
+review-only. The safe default \code{"stop"} prevents automatic filtering;
+\code{"warn_apply"} applies it with an explicit warning.}
 
 \item{...}{Additional parameters, currently unused.}
 }

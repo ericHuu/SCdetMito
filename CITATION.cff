@@ -1,8 +1,8 @@
 cff-version: 1.2.0
 message: "If you use SCdetMito, please cite it as below."
 title: "SCdetMito: An R package for reference-aware adaptive mitochondrial quality control in single-cell RNA-seq data"
-version: "1.4.3"
-date-released: "2026-05-23"
+version: "1.4.4"
+date-released: "2026-09-12"
 authors:
   - family-names: "Hu"
     given-names: "Silu"

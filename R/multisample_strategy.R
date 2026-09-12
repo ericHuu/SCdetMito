@@ -281,6 +281,16 @@ build_multisample_cutoff_plan <- function(seurat_obj,
       cutoff_column <- "detected_cutoff"
     }
     sample_plan$sample_cutoff <- sample_plan[[cutoff_column]]
+    eligibility_column <- if (identical(cutoff_column, "recommended_cutoff")) {
+      "recommended_auto_apply_eligible"
+    } else {
+      "selected_auto_apply_eligible"
+    }
+    sample_plan$source_auto_apply_eligible <- if (eligibility_column %in% colnames(sample_plan)) {
+      as.logical(sample_plan[[eligibility_column]])
+    } else {
+      FALSE
+    }
     sample_plan$cutoff_applied_source <- if (identical(cutoff_column, "recommended_cutoff")) {
       "recommended_cutoff"
     } else {
@@ -298,6 +308,9 @@ build_multisample_cutoff_plan <- function(seurat_obj,
     sample_plan$recommended_method <- "user_defined"
     sample_plan$recommendation_level <- "standard"
     sample_plan$recommendation_source <- "user_defined"
+    sample_plan$recommended_auto_apply_eligible <- TRUE
+    sample_plan$selected_auto_apply_eligible <- TRUE
+    sample_plan$source_auto_apply_eligible <- TRUE
     sample_plan$sample_cutoff <- numeric_cutoff
     sample_plan$cutoff_applied_source <- "user_defined"
     sample_plan$cutoff_source <- "user_defined"
@@ -326,6 +339,8 @@ build_multisample_cutoff_plan <- function(seurat_obj,
     }
     sample_plan$group_cutoff <- final_cutoff
     sample_plan$applied_cutoff <- final_cutoff
+    global_auto_apply_eligible <- all(sample_plan$source_auto_apply_eligible %in% TRUE)
+    sample_plan$applied_auto_apply_eligible <- global_auto_apply_eligible
     aggregation_level <- "global"
     supported_cutoff <- summarize_cutoff_support(
       sample_plan$sample_cutoff,
@@ -339,6 +354,7 @@ build_multisample_cutoff_plan <- function(seurat_obj,
       support_count = supported_cutoff$support_count,
       support_fraction = supported_cutoff$support_fraction,
       required_support = supported_cutoff$required_support,
+      auto_apply_eligible = global_auto_apply_eligible,
       stringsAsFactors = FALSE
     )
   } else if (is.null(group_by)) {
@@ -346,6 +362,7 @@ build_multisample_cutoff_plan <- function(seurat_obj,
     final_cutoff <- supported_cutoff$cutoff
     sample_plan$group_cutoff <- sample_plan$sample_cutoff
     sample_plan$applied_cutoff <- sample_plan$sample_cutoff
+    sample_plan$applied_auto_apply_eligible <- sample_plan$source_auto_apply_eligible %in% TRUE
     aggregation_level <- "sample"
     group_plan <- data.frame(
       group_id = "all_samples",
@@ -354,6 +371,7 @@ build_multisample_cutoff_plan <- function(seurat_obj,
       support_count = supported_cutoff$support_count,
       support_fraction = supported_cutoff$support_fraction,
       required_support = supported_cutoff$required_support,
+      auto_apply_eligible = all(sample_plan$applied_auto_apply_eligible),
       stringsAsFactors = FALSE
     )
   } else {
@@ -388,11 +406,20 @@ build_multisample_cutoff_plan <- function(seurat_obj,
     )
     group_plan <- merge(group_plan, group_support, by = "group_id", all.x = TRUE, sort = FALSE)
     group_plan <- group_plan[match(names(group_cutoffs), group_plan$group_id), ]
+    group_auto_apply <- tapply(
+      sample_plan$source_auto_apply_eligible %in% TRUE,
+      sample_plan$group_id,
+      all
+    )
+    group_plan$auto_apply_eligible <- as.logical(group_auto_apply[group_plan$group_id])
 
     sample_plan$group_cutoff <- group_plan$group_cutoff[match(sample_plan$group_id, group_plan$group_id)]
 
     final_cutoff <- max(group_plan$group_cutoff, na.rm = TRUE)
     sample_plan$applied_cutoff <- sample_plan$group_cutoff
+    sample_plan$applied_auto_apply_eligible <- group_plan$auto_apply_eligible[
+      match(sample_plan$group_id, group_plan$group_id)
+    ]
     aggregation_level <- "group"
   }
 
@@ -459,6 +486,7 @@ build_multisample_cutoff_plan <- function(seurat_obj,
     cutoff_applied_source = cutoff_applied_source,
     cutoff_applied_strategy = cutoff_strategy,
     applied_cutoff_level = aggregation_level,
+    auto_apply_eligible = all(sample_plan$applied_auto_apply_eligible %in% TRUE),
     global_cutoff = final_cutoff,
     sample_supported_global_cutoff = group_plan,
     cutoff_strategy = cutoff_strategy,

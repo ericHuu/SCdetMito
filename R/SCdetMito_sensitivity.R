@@ -1,8 +1,8 @@
 # SCdetMito
 # Author: Silu Hu
 # Contact: husilu0902@gmail.com
-# Version: 1.4.3
-# Last updated: 2026-05-23
+# Version: 1.4.4
+# Last updated: 2026-09-12
 
 # Avoid R CMD check notes for ggplot2 non-standard evaluation columns.
 if (getRversion() >= "2.15.1") {
