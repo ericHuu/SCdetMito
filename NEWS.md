@@ -1,3 +1,14 @@
+# SCdetMito development version
+
+## Phase 3 comparative validation framework
+
+- Started a separate post-1.4.4 development line for comparator benchmarking,
+  simulation calibration, and manuscript-facing validation without altering
+  the frozen 1.4.4 release.
+- Separated the 30% recommendation over-filter guard from a stricter 80%
+  automatic-application retention floor. Candidate cutoffs remain reportable,
+  while removal of more than 20% of cells now requires explicit review.
+
 # SCdetMito 1.4.4
 
 Date: 2026-09-12

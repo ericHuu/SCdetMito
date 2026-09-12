@@ -1,7 +1,7 @@
 # SCdetMito
 # Author: Silu Hu
 # Contact: husilu0902@gmail.com
-# Version: 1.4.4
+# Version: 1.4.5.9000
 # Last updated: 2026-09-12
 
 # Internal helpers for QC workflows.
@@ -47,7 +47,8 @@ scdetmito_palette <- function(n = 8) {
 
 cutoff_safety_defaults <- function() {
   list(
-    min_retention_for_auto_apply = 0.30,
+    min_retention_for_recommendation_guard = 0.30,
+    min_retention_for_auto_apply = 0.80,
     cautious_reference_ratio = 2,
     max_reference_ratio_for_auto_apply = 3
   )
@@ -180,7 +181,7 @@ enforce_cutoff_review_policy <- function(auto_apply_eligible,
 
   message_text <- paste0(
     "The ", context, " is marked review-only (for example because it is fallback-derived, ",
-    "hits the upper search boundary, retains <30% of cells, or is >=3x an available literature prior). ",
+    "hits the upper search boundary, retains <80% of cells, or is >=3x an available literature prior). ",
     "Inspect the SCdetMito evidence and provide an explicit numeric max_mito, or set ",
     "review_action = 'warn_apply' to apply it deliberately."
   )
@@ -566,11 +567,11 @@ build_recommendation_fields <- function(first_significant_cutoff_high,
   safety <- cutoff_safety_defaults()
   use_retention_guard <- is.finite(reference_guided_cutoff) &&
     is.finite(reference_guided_retention) &&
-    reference_guided_retention < safety$min_retention_for_auto_apply &&
+    reference_guided_retention < safety$min_retention_for_recommendation_guard &&
     is.finite(first_significant_cutoff_high) &&
     first_significant_cutoff_high > reference_guided_cutoff &&
     is.finite(first_significant_high_retention) &&
-    first_significant_high_retention >= safety$min_retention_for_auto_apply
+    first_significant_high_retention >= safety$min_retention_for_recommendation_guard
 
   if (use_retention_guard) {
     recommended_cutoff <- first_significant_cutoff_high

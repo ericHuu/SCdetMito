@@ -75,11 +75,12 @@ test_that("SCQCbenchmark produces comparative outputs on demo data", {
   expect_true(is.finite(groupwise_cells))
   expect_gte(consensus_cells, 0)
   expect_gte(groupwise_cells, 0)
-  expect_true(benchmark$recommendation$adaptive_strategy %in% c("scdet_consensus", "scdet_groupwise"))
+  expect_true(is.na(benchmark$recommendation$adaptive_strategy))
   expect_equal(
     benchmark$recommendation$adaptive_strategy,
     benchmark$recommendation$recommended_adaptive_strategy
   )
+  expect_equal(benchmark$recommendation$recommended_strategy, "fixed_0.10")
 })
 
 test_that("SCQCbenchmark handles single-sample adaptive benchmarks", {
@@ -108,5 +109,6 @@ test_that("SCQCbenchmark handles single-sample adaptive benchmarks", {
 
   expect_true(all(is.finite(benchmark$summary$sample_retention_cv)))
   expect_true(all(is.finite(benchmark$scores$overall_score)))
-  expect_equal(benchmark$recommendation$adaptive_strategy, "scdet_consensus")
+  expect_true(is.na(benchmark$recommendation$adaptive_strategy))
+  expect_equal(benchmark$recommendation$recommended_strategy, "fixed_0.10")
 })

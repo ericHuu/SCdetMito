@@ -17,7 +17,9 @@ knitr::opts_chunk$set(
 
 # SCdetMito Package Documentation
 
-Version: 1.4.4
+Development version: 1.4.5.9000
+
+Latest frozen release: 1.4.4
 
 Updated: 2026-09-12
 
@@ -79,10 +81,15 @@ SCdetMito's default reference-aware policy, so strict or exploratory selected
 modes can be compared with the package recommendation.
 
 Fallback-derived results, upper search-boundary hits, cutoffs retaining less
-than 30% of cells, and cutoffs at least three times an available literature
+than 80% of cells, and cutoffs at least three times an available literature
 prior are marked review-only. `SCQCone()` and `SCQCmulti()` stop before applying
 such results unless the user supplies an explicit numeric cutoff or sets
 `review_action = "warn_apply"` after inspection.
+
+The separate 30% recommendation guard can move an overly stringent
+reference-nearest candidate to a more permissive significant boundary. The 80%
+automatic-application floor then determines whether that reported candidate can
+be applied without explicit review.
 
 ## Mitochondrial Ratio Handling
 

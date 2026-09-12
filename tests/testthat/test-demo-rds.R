@@ -117,6 +117,25 @@ test_that("SCdetMito cutoffs are consistent after demo mitoRatio recomputation",
 test_that("SCQCmulti runs groupwise on bundled PBMC demo", {
   seu <- load_demo_pbmc()
 
+  expect_error(
+    SCQCmulti(
+      seu,
+      sample_col = "sample",
+      group_col = "group",
+      mito_col = "mitoRatio",
+      cutoff_strategy = "groupwise",
+      scdet_options = list(sample_cutoff_method = "reference_guided"),
+      species = "human",
+      tissue = "PBMC",
+      min_genes = 0,
+      min_counts = 0,
+      removeDouble = FALSE,
+      write_plots = FALSE,
+      write_tables = FALSE
+    ),
+    "marked review-only"
+  )
+
   qc <- suppressWarnings(SCQCmulti(
     seu,
     sample_col = "sample",
@@ -129,6 +148,7 @@ test_that("SCQCmulti runs groupwise on bundled PBMC demo", {
     min_genes = 0,
     min_counts = 0,
     removeDouble = FALSE,
+    review_action = "warn_apply",
     write_plots = FALSE,
     write_tables = FALSE
   ))
@@ -152,6 +172,7 @@ test_that("SCQCmulti groupwise provenance reports final strategy-level cutoffs",
     min_genes = 0,
     min_counts = 0,
     removeDouble = FALSE,
+    review_action = "warn_apply",
     write_plots = FALSE,
     write_tables = FALSE
   ))

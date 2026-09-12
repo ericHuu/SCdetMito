@@ -3,8 +3,8 @@
 SCdetMito is an R package for reference-aware and sample-aware adaptive
 mitochondrial quality control in single-cell RNA-seq data.
 
-Version: `1.4.4`
-Release date: `2026-09-12`
+Development version: `1.4.5.9000`
+Latest frozen release: `1.4.4` (`2026-09-12`)
 
 ## Overview
 
@@ -95,7 +95,7 @@ group-aware workflow checks. It is not intended for biological inference.
 When adaptive mitochondrial filtering is requested, `SCQCone()` and
 `SCQCmulti()` use `recommended_cutoff` by default and record the applied cutoff
 source in object provenance. A fallback-derived cutoff, an upper search-boundary
-hit, retention below 30%, or a cutoff at least three times an available
+hit, retention below 80%, or a cutoff at least three times an available
 literature prior is marked review-only and is not applied automatically. After
 inspection, users can provide an explicit numeric `max_mito` or deliberately
 set `review_action = "warn_apply"`. Set `use_recommended_cutoff = FALSE` to
@@ -148,6 +148,12 @@ cells, the recommendation policy reports a more permissive significant
 high-to-low boundary that reaches the retention floor when one exists. A large
 departure from the prior remains review-only, so this guard improves the
 decision aid without converting a high cutoff into an automatic rule.
+
+The 30% recommendation guard and the 80% automatic-application floor serve
+different purposes. The first prevents the reference-nearest candidate from
+becoming needlessly destructive; the second keeps any candidate removing more
+than 20% of cells in review-only mode. Both are operational safety guardrails,
+not universal biological thresholds.
 
 Even when users select a strict or exploratory cutoff mode, SCdetMito reports a
 `recommended_cutoff` using the reference-aware policy. The user-selected cutoff

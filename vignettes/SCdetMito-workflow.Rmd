@@ -85,6 +85,7 @@ qc_groupwise <- SCQCmulti(
   min_genes = 0,
   min_counts = 0,
   removeDouble = FALSE,
+  review_action = "warn_apply",
   write_plots = FALSE,
   write_tables = FALSE
 )
@@ -96,7 +97,10 @@ qc_groupwise@misc$SCdetMito_QC$group_cutoff_summary
 
 `cutoff_applied` records the actual filtering cutoff. In groupwise mode,
 `sample_cutoff_summary` retains per-sample cutoff evidence and
-`group_cutoff_summary` records group-level aggregation.
+`group_cutoff_summary` records group-level aggregation. The bundled demo is
+review-only under the development safety policy, so this executable vignette
+uses `review_action = "warn_apply"` as an explicit, documented override. Normal
+analyses should inspect the returned evidence before choosing that override.
 
 ## Benchmarking and sensitivity
 

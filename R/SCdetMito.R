@@ -1,7 +1,7 @@
 # SCdetMito
 # Author: Silu Hu
 # Contact: husilu0902@gmail.com
-# Version: 1.4.4
+# Version: 1.4.5.9000
 # Last updated: 2026-09-12
 
 #' SCdetMito: reference-aware retention-loss mitochondrial QC
@@ -917,6 +917,7 @@ SCdetMito <- function(seurat_obj,
     reference_found = reference_info$reference_found,
     reference_warning = reference_warning,
     auto_apply_min_retention = safety_defaults$min_retention_for_auto_apply,
+    recommendation_guard_min_retention = safety_defaults$min_retention_for_recommendation_guard,
     cautious_reference_ratio = safety_defaults$cautious_reference_ratio,
     auto_apply_max_reference_ratio = safety_defaults$max_reference_ratio_for_auto_apply,
     upper_search_boundary = upper_search_boundary,

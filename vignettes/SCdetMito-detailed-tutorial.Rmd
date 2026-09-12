@@ -95,10 +95,14 @@ compare the selected cutoff with SCdetMito's recommendation and warning fields.
 
 Adaptive cutoffs are eligible for automatic filtering only when they are
 supported by a significant internal boundary, do not hit the upper search
-boundary, retain at least 30% of cells, and are less than three times an
+boundary, retain at least 80% of cells, and are less than three times an
 available literature prior. Review-only results remain visible for diagnosis;
 they require an explicit numeric cutoff or `review_action = "warn_apply"` to be
 applied.
+
+This 80% value is an operational automatic-application floor, not a biological
+quality threshold. A separate 30% recommendation guard is used only to avoid
+reporting an unnecessarily destructive reference-nearest candidate.
 
 ## Apply Groupwise QC
 
