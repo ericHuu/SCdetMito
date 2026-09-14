@@ -117,6 +117,7 @@ qc_groupwise <- SCQCmulti(
   group_col = "group",
   mito_col = "mitoRatio",
   cutoff_strategy = "groupwise",
+  review_action = "warn_apply",
   scdet_options = list(sample_cutoff_method = "reference_guided"),
   species = "human",
   tissue = "PBMC",
@@ -127,6 +128,10 @@ qc_groupwise <- SCQCmulti(
   write_tables = FALSE
 )
 ```
+
+This executable example deliberately uses `review_action = "warn_apply"` so
+that the vignette demonstrates the complete filtering object. In an analysis,
+inspect the returned cutoff evidence before making that explicit choice.
 
 `SCQCmulti()` stores `cutoff_applied` as the actual filtering cutoff. The
 `sample_cutoff_summary` provenance field stores per-sample evidence, and

@@ -2,6 +2,8 @@
 ^\.DS_Store$
 ^\.Rhistory$
 ^\.github$
+^\.git$
+^codemeta\.json$
 ^inst/\.DS_Store$
 ^SCdetMito_.*[.]tar[.]gz$
 ^data-raw$

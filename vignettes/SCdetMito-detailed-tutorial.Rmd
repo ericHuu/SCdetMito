@@ -115,6 +115,7 @@ qc <- SCQCmulti(
   group_col = "group",
   mito_col = "mitoRatio",
   cutoff_strategy = "groupwise",
+  review_action = "warn_apply",
   scdet_options = list(sample_cutoff_method = "reference_guided"),
   species = "human",
   tissue = "PBMC",
@@ -124,6 +125,9 @@ qc <- SCQCmulti(
   write_plots = FALSE,
   write_tables = FALSE
 )
+
+# The executable tutorial opts in only to demonstrate the returned QC object.
+# For research data, inspect the evidence before accepting a review-only plan.
 
 qc@misc$SCdetMito_QC$cutoff_applied
 qc@misc$SCdetMito_QC$sample_cutoff_summary
