@@ -40,6 +40,8 @@ jobs:
           extra-packages: |
             any::rcmdcheck
             any::knitr
+            any::litedown
+            any::markdown
             any::rmarkdown
             any::testthat
           needs: check
