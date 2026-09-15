@@ -20,7 +20,7 @@ Description: Provides reference-aware and sample-aware adaptive mitochondrial
     workflows.
 Depends: R (>= 4.1.0)
 Imports: ggplot2, reshape2, rlang, Seurat
-Suggests: DoubletFinder, knitr, rmarkdown, SeuratData, testthat (>=
+Suggests: DoubletFinder, knitr, markdown, rmarkdown, SeuratData, testthat (>=
         3.0.0)
 License: MIT + file LICENSE
 URL: https://github.com/ericHuu/SCdetMito
