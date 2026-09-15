@@ -3,8 +3,7 @@
 SCdetMito is an R package for reference-aware, sample-aware assessment of
 mitochondrial proportion thresholds in single-cell RNA-seq data.
 
-Development version: `1.4.5.9000`
-Latest frozen release: `1.4.4` (`2026-09-12`)
+Latest frozen release: `1.4.5` (`2026-09-15`)
 
 ## Overview
 
@@ -30,14 +29,14 @@ maintained outside the core package.
 
 ```r
 install.packages("remotes")
-remotes::install_github("ericHuu/SCdetMito@v1.4.4", build_vignettes = FALSE)
+remotes::install_github("ericHuu/SCdetMito@v1.4.5", build_vignettes = FALSE)
 ```
 
 For local source installation:
 
 ```r
 install.packages(
-  "/path/to/SCdetMito_1.4.4.tar.gz",
+  "/path/to/SCdetMito_1.4.5.tar.gz",
   repos = NULL,
   type = "source"
 )

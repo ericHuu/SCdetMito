@@ -1,7 +1,11 @@
-# SCdetMito development version
+# SCdetMito 1.4.5
+
+Date: 2026-09-15
 
 ## SoftwareX readiness and operating-domain calibration
 
+- Finalized the validated 1.4.5 release without changing the calibrated
+  threshold-selection or safety-decision logic.
 - Started a separate post-1.4.4 development line for comparator benchmarking,
   simulation calibration, and manuscript-facing validation without altering
   the frozen 1.4.4 release.

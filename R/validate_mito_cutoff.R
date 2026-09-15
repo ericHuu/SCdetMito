@@ -1,7 +1,7 @@
 # SCdetMito
 # Author: Silu Hu
 # Contact: husilu0902@gmail.com
-# Version: 1.4.5.9000
+# Version: 1.4.5
 # Last updated: 2026-09-12
 
 #' Validate an existing mitochondrial cutoff against basic QC metrics

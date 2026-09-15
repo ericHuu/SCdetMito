@@ -24,7 +24,7 @@ Install SCdetMito from GitHub with:
 
 ```r
 install.packages("remotes")
-remotes::install_github("ericHuu/SCdetMito@v1.4.4", build_vignettes = FALSE)
+remotes::install_github("ericHuu/SCdetMito@v1.4.5", build_vignettes = FALSE)
 ```
 
 Then load the package:

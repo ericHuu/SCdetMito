@@ -1,7 +1,8 @@
 cff-version: 1.2.0
 message: "If you use SCdetMito, please cite it as below."
 title: "SCdetMito: Reference-aware assessment of mitochondrial proportion thresholds in single-cell RNA-seq data"
-version: "1.4.5.9000"
+version: "1.4.5"
+date-released: 2026-09-15
 authors:
   - family-names: "Hu"
     given-names: "Silu"
