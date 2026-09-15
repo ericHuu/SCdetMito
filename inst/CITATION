@@ -4,5 +4,6 @@ bibentry(
   author = person("Silu", "Hu"),
   year = "2026",
   note = sprintf("R package version %s", meta$Version),
+  doi = "10.5281/zenodo.20279801",
   url = "https://github.com/ericHuu/SCdetMito"
 )

@@ -376,7 +376,7 @@ system.file(
 citation("SCdetMito")
 ```
 
-Zenodo DOI: `[![10.5281/zenodo.20371700]]` https://zenodo.org/records/20371700
+Zenodo concept DOI: [10.5281/zenodo.20279801](https://doi.org/10.5281/zenodo.20279801)
 
 When reporting SCdetMito results, cite the package version, detection settings,
 reference cutoff source, sample cutoff summary, and whether cutoffs were

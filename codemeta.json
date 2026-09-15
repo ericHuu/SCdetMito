@@ -3,6 +3,7 @@
   "@type": "SoftwareSourceCode",
   "name": "SCdetMito",
   "description": "Reference-aware assessment of mitochondrial proportion thresholds for single-cell RNA-sequencing quality control.",
+  "identifier": "https://doi.org/10.5281/zenodo.20279801",
   "version": "1.4.5",
   "dateModified": "2026-09-15",
   "codeRepository": "https://github.com/ericHuu/SCdetMito",
